@@ -1,0 +1,12 @@
+# local package
+#-e .
+
+# external requirements
+flake8
+jupyterlab
+sklearn
+pandas
+numpy
+matplotlib
+seaborn
+ipykernel
