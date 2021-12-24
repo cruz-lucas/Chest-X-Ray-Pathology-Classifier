@@ -10,3 +10,4 @@ numpy
 matplotlib
 seaborn
 ipykernel
+torchxrayvision

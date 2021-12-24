@@ -7,7 +7,7 @@
 PROJECT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 BUCKET = [OPTIONAL] your-bucket-for-syncing-data (do not include 's3://')
 PROFILE = default
-PROJECT_NAME = X-Ray-Image-Quality-Assessment
+PROJECT_NAME = Chest X-Ray Pathology Classifier
 PYTHON_INTERPRETER = python3
 
 ifeq (,$(shell which conda))
@@ -142,3 +142,9 @@ help:
 		printf "\n"; \
 	}' \
 	| more $(shell test $(shell uname) = Darwin && echo '--no-init --raw-control-chars')
+
+docker-build:
+	docker build -t lucas-cruz-final-project -f Dockerfile .
+
+docker-run:
+	docker run -it --name final-project --rm --volume='D:\Projeto_de_Graduacao\Chest X-Ray Pathology Classifier':/project lucas-cruz-final-project
