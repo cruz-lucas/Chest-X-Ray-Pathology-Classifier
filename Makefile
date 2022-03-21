@@ -16,18 +16,11 @@ else
 HAS_CONDA=True
 endif
 
+TAG = dev
+
 #################################################################################
 # COMMANDS                                                                      #
 #################################################################################
-
-## Install Python Dependencies
-requirements: test_environment
-	$(PYTHON_INTERPRETER) -m pip install -U pip setuptools wheel
-	$(PYTHON_INTERPRETER) -m pip install -r requirements.txt
-
-## Make Dataset
-data: requirements
-	$(PYTHON_INTERPRETER) src/data/make_dataset.py data/raw data/processed
 
 ## Delete all compiled Python files
 clean:
@@ -80,7 +73,22 @@ test_environment:
 # PROJECT RULES                                                                 #
 #################################################################################
 
+## Build Docker Image
+docker_build:
+	docker build -t lucas-cruz-final-project:$(TAG) -f Dockerfile .
 
+## Run Docker Container
+docker_run:
+	docker run -it --name final-project-$(TAG) --rm --volume='D:\Projeto_de_Graduacao\Chest X-Ray Pathology Classifier':/project lucas-cruz-final-project:$(TAG)
+
+## Install Python Dependencies
+requirements: test_environment
+	$(PYTHON_INTERPRETER) -m pip install -U pip setuptools wheel
+	$(PYTHON_INTERPRETER) -m pip install -r requirements.txt
+
+## Train Models
+train:
+	$(PYTHON_INTERPRETER) src/models/train_model.py -i data/raw/ -o data/processed/ -r '(128, 128)' -b 128 -t Cardiomegaly -u ignore
 
 #################################################################################
 # Self Documenting Commands                                                     #
@@ -142,9 +150,3 @@ help:
 		printf "\n"; \
 	}' \
 	| more $(shell test $(shell uname) = Darwin && echo '--no-init --raw-control-chars')
-
-docker-build:
-	docker build -t lucas-cruz-final-project -f Dockerfile .
-
-docker-run:
-	docker run -it --name final-project --rm --volume='D:\Projeto_de_Graduacao\Chest X-Ray Pathology Classifier':/project lucas-cruz-final-project
