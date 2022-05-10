@@ -1,12 +1,39 @@
-Chest X-Ray Pathology Classifier
-==============================
+# Chest X-Ray Pathology Classifier
 
 Lucas Cruz's final project for Electronics and Computer Engineering undergraduate course at Universidade Federal of Rio de Janeiro.
 
+## Usage
+### **1. Environment** (Optional)
+
+An exemple of building the Docker container can be found in the Makefile, and executed in command line:
+```
+make docker_build
+```
+And run the container using:
+```
+make docker_run
+```
+
+### **2. Installation**
+```
+pip install -r requirements.txt
+```
+
+### **3. Data**
+
+To download the data, you should go to the CheXpert's [webpage](https://stanfordmlgroup.github.io/competitions/chexpert/), fillout the Use Agreement and wait for the email with the download link.
+
+Once downloaded, unzip folder to path:
+> ./data/raw/
 
 
-Project Organization
-------------
+## Components
+- Data Loader
+- Environment
+- Agent
+
+## Project Organization
+
 
     ├── LICENSE
     ├── Makefile           <- Makefile with commands like `make data` or `make train`
@@ -16,6 +43,11 @@ Project Organization
     │   ├── interim        <- Intermediate data that has been transformed.
     │   ├── processed      <- The final, canonical data sets for modeling.
     │   └── raw            <- The original, immutable data dump.
+    │       └── CheXpert-v1.0
+    │           ├── train  <- Train data, with structure according to metadata.
+    │           ├── valid  <- Valid data, with structure according to metadata.
+    │           ├── train.csv
+    │           └── valid.csv
     │
     ├── docs               <- A default Sphinx project; see sphinx-doc.org for details
     │
@@ -54,4 +86,7 @@ Project Organization
     └── tox.ini            <- tox file with settings for running tox; see tox.readthedocs.io
 
 
---------
+
+## Authors
+
+- [@lucasdearaujocruz](https://github.com/lucasdearaujocruz)
