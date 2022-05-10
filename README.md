@@ -14,7 +14,7 @@ And run the container using:
 make docker_run
 ```
 
-### **2. Installation**
+### **2. Installation** (If not using Environment)
 ```
 pip install -r requirements.txt
 ```
