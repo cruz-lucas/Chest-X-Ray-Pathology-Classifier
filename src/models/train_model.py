@@ -19,7 +19,6 @@ def main(input_filepath: str, output_filepath: str, batch_size: int, uncertainty
 
     logger.info(f'\nStart training with:\n- Batch size:\t\t{batch_size}\n- Uncertainty Policy:\t"{uncertainty_policy}".')
     dataloader = CheXpertDataset(data_path=input_filepath, uncertainty_policy=uncertainty_policy, logger=logger)
-    dataloader.__getitem__(0)
     
     return None
 
