@@ -1,21 +1,29 @@
+import logging
+from pathlib import PurePath
 from typing import List
 import pandas as pd
-from PIL import Image
-import logging
+import numpy as np
+import cv2
 
-from torch import FloatTensor
+from torch import FloatTensor, Tensor
 from torch.utils.data import Dataset
 from torch.cuda import is_available
 
 use_gpu = is_available()
 
-# CheXpert pathologies on paper
-pathologies = ['atelectasis',
-               'cardiomegaly',
-               'consolidation',
-               'edema',
-               'pleural effusion']
+# CheXpert pathologies on original paper
+pathologies = ['Atelectasis',
+               'Cardiomegaly',
+               'Consolidation',
+               'Edema',
+               'Pleural Effusion']
 
+# Uncertainty policies on original paper
+uncertainty_policies = ['U-Ignore',
+                        'U-Zeros',
+                        'U-Ones',
+                        'U-SelfTrained',
+                        'U-MultiClass']
 
 ######################
 ## Create a Dataset ##
@@ -30,30 +38,27 @@ class CheXpertDataset(Dataset):
             Check if options are implemented. Options: 'U-Ignore', 'U-Zeros', 'U-Ones', 'U-SelfTrained', and 'U-MultiClass'.
             logger (logging.Logger): Logger to log events during training.
             pathologies (List[str], optional): Pathologies to classify.
-            Defaults to 'atelectasis', 'cardiomegaly', 'consolidation', 'edema', and 'pleural effusion'.
+            Defaults to 'Atelectasis', 'Cardiomegaly', 'Consolidation', 'Edema', and 'Pleural Effusion'.
 
         Returns:
             None
         """
-
-        uncertainty_policies = ['U-Ignore',
-                                'U-Zeros',
-                                'U-Ones',
-                                'U-SelfTrained',
-                                'U-MultiClass']
         
         if not(uncertainty_policy in uncertainty_policies):
             logger.error(f"Unknown uncertainty policy. Known policies: {uncertainty_policies}")
             return None
 
+        path = PurePath(data_path, 'CheXpert-v1.0/train.csv')
         try:
-            data = pd.read_csv(data_path)
+            data = pd.read_csv(path)
         except Exception as e:
-            logger.error(f"Couldn't read csv at path {data_path}.\n{e}")
+            logger.error(f"Couldn't read csv at path {path}.\n{e}")
             return None
 
-        data.set_index('path', inplace=True)
+        data['Path'] = data_path + data['Path']
+        data.set_index('Path', inplace=True)
         data = data.loc[:, pathologies].copy()
+        data.fillna(0, inplace=True)
 
         # U-Ignore
         if uncertainty_policy == uncertainty_policies[0]:
@@ -80,17 +85,24 @@ class CheXpertDataset(Dataset):
         self.image_names = data.index.to_numpy()
         self.labels = data.loc[:, pathologies].to_numpy()
 
-    def __getitem__(self, index: int):
+    def __getitem__(self, index: int) -> (np.array, Tensor):
         """ Returns image and label from given index.
 
         Args:
             index (int): Index of sample in dataset.
 
         Returns:
-            _type_: _description_
+            np.array: Array of grayscale image.
+            torch.Tensor: Tensor of labels.
         """
-        image_name = self.image_names[index]
-        image = Image.open(image_name).convert('RGB')
+        image = cv2.imread(self.image_names[index], 0)
+        # Test data augmentation here
+        #############
+
+        #############
+
+        # Norm between -1.0 and 1.0
+        image = (np.array(image) - 128.0)/128.0
         label = self.labels[index]
         return image, FloatTensor(label)
 

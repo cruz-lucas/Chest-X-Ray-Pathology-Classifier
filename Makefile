@@ -88,7 +88,7 @@ requirements: test_environment
 
 ## Train Models
 train:
-	$(PYTHON_INTERPRETER) src/models/train_model.py -i data/raw/ -o data/processed/ -r '(128, 128)' -b 128 -t Cardiomegaly -u ignore
+	$(PYTHON_INTERPRETER) src/models/train_model.py -i data/raw/ -o data/processed/ -b 128 -u U-Zeros
 
 #################################################################################
 # Self Documenting Commands                                                     #
