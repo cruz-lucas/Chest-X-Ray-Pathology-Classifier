@@ -1,6 +1,6 @@
 # Chest X-Ray Pathology Classifier
 
-Lucas Cruz's final project for Electronics and Computer Engineering undergraduate course at Universidade Federal of Rio de Janeiro.
+Lucas Cruz's final project for Electronics and Computer Engineering undergraduate course at Universidade Federal do Rio de Janeiro.
 
 ## Usage
 ### **1. Environment** (Optional)
