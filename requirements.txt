@@ -16,3 +16,5 @@ opencv-python==4.5.5.64
 pyarrow==7.0.0
 optuna==2.10.0
 torch==1.11.0
+
+git+https://github.com/lucasdearaujocruz/gaussian-ram.git#egg=GDRAM

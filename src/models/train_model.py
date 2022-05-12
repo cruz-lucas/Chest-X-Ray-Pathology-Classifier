@@ -4,7 +4,14 @@ from pathlib import Path
 from dotenv import find_dotenv, load_dotenv
 
 from src.data.dataset import CheXpertDataset
+from GDRAM.model import GDRAM
 
+import torch
+
+device = torch.device('gpu') if torch.cuda.is_available() else torch.device('cpu')
+torch.manual_seed(666)
+
+# Data paths default values
 RAW_DATA_PATH = 'data/raw/'
 PROCESSED_DATA_PATH = 'data/processed/'
 
@@ -14,12 +21,13 @@ PROCESSED_DATA_PATH = 'data/processed/'
 @click.option('--batch_size', '-b', default=128, type=int, help='Batch size in training')
 @click.option('--uncertainty_policy', '-u', type=str,
     help='Policy to handle uncertainty.According the CheXpert original paper, policies are "U-Ignore", "U-Zeros", "U-Ones", "U-SelfTrained", and "U-MultiClass"')
-def main(input_filepath: str, output_filepath: str, batch_size: int, uncertainty_policy: str) -> None:
+def train(input_filepath: str, output_filepath: str, batch_size: int, uncertainty_policy: str) -> None:
     logger = logging.getLogger(__name__)
 
     logger.info(f'\nStart training with:\n- Batch size:\t\t{batch_size}\n- Uncertainty Policy:\t"{uncertainty_policy}".')
-    dataloader = CheXpertDataset(data_path=input_filepath, uncertainty_policy=uncertainty_policy, logger=logger)
+    #dataloader = CheXpertDataset(data_path=input_filepath, uncertainty_policy=uncertainty_policy, logger=logger)
     
+    model = GDRAM(device=device, Fast=False).to(device)
     return None
 
 if __name__ == '__main__':
@@ -33,4 +41,4 @@ if __name__ == '__main__':
     # load up the .env entries as environment variables
     load_dotenv(find_dotenv())
 
-    main()
+    train()

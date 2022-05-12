@@ -1,0 +1,6 @@
+[submodule "src/gaussian-ram"]
+	path = src/gaussian-ram
+	url = https://github.com/lucasdearaujocruz/gaussian-ram.git
+[submodule "src/submodules/gaussian-ram"]
+	path = src/submodules/gaussian-ram
+	url = https://github.com/lucasdearaujocruz/gaussian-ram.git

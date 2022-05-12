@@ -1,15 +1,12 @@
 import logging
 from pathlib import PurePath
-from typing import List
+from typing import List, Union
 import pandas as pd
 import numpy as np
 import cv2
 
 from torch import FloatTensor, Tensor
 from torch.utils.data import Dataset
-from torch.cuda import is_available
-
-use_gpu = is_available()
 
 # CheXpert pathologies on original paper
 pathologies = ['Atelectasis',
@@ -85,7 +82,7 @@ class CheXpertDataset(Dataset):
         self.image_names = data.index.to_numpy()
         self.labels = data.loc[:, pathologies].to_numpy()
 
-    def __getitem__(self, index: int) -> (np.array, Tensor):
+    def __getitem__(self, index: int) -> Union[np.array, Tensor]:
         """ Returns image and label from given index.
 
         Args:
