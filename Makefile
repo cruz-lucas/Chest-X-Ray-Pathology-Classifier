@@ -80,6 +80,7 @@ docker_build:
 ## Run Docker Container
 docker_run:
 	docker run -it --name final-project-$(TAG) --rm --volume='/home/lucas/Projects/x-ray/Chest-X-Ray-Pathology-Classifier':/project lucas-cruz-final-project:$(TAG)
+# /home/lucas/Projects/x-ray/Chest-X-Ray-Pathology-Classifier
 
 ## Install Python Dependencies
 requirements: test_environment
