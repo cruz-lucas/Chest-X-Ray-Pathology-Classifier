@@ -6,7 +6,8 @@ import numpy as np
 import cv2
 
 from torch import FloatTensor, Tensor
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
+import torchvision.transforms as T
 
 # CheXpert pathologies on original paper
 pathologies = ['Atelectasis',
@@ -26,7 +27,13 @@ uncertainty_policies = ['U-Ignore',
 ## Create a Dataset ##
 ######################
 class CheXpertDataset(Dataset):
-    def __init__(self, data_path: str, uncertainty_policy: str, logger: logging.Logger, pathologies: List[str] = pathologies) -> None:
+    def __init__(self,
+                 data_path: str,
+                 uncertainty_policy: str,
+                 logger: logging.Logger,
+                 pathologies: List[str] = pathologies,
+                 transform = None,
+                 train: bool = True) -> None:
         """ Innitialize dataset and preprocess according to uncertainty policy.
 
         Args:
@@ -36,6 +43,8 @@ class CheXpertDataset(Dataset):
             logger (logging.Logger): Logger to log events during training.
             pathologies (List[str], optional): Pathologies to classify.
             Defaults to 'Atelectasis', 'Cardiomegaly', 'Consolidation', 'Edema', and 'Pleural Effusion'.
+            transform (type): method to transform image.
+            train (bool): If true, returns data selected for training, if not, returns data selected for validation (dev set), as the CheXpert research group splitted.
 
         Returns:
             None
@@ -45,7 +54,8 @@ class CheXpertDataset(Dataset):
             logger.error(f"Unknown uncertainty policy. Known policies: {uncertainty_policies}")
             return None
 
-        path = PurePath(data_path, 'CheXpert-v1.0/train.csv')
+        split = 'train' if train  else 'valid'
+        path = PurePath(data_path, 'CheXpert-v1.0/{split}.csv')
         try:
             data = pd.read_csv(path)
         except Exception as e:
@@ -81,6 +91,8 @@ class CheXpertDataset(Dataset):
 
         self.image_names = data.index.to_numpy()
         self.labels = data.loc[:, pathologies].to_numpy()
+        self.transform = transform
+        self.__len = len(self.image_names)
 
     def __getitem__(self, index: int) -> Union[np.array, Tensor]:
         """ Returns image and label from given index.
@@ -93,10 +105,8 @@ class CheXpertDataset(Dataset):
             torch.Tensor: Tensor of labels.
         """
         image = cv2.imread(self.image_names[index], 0)
-        # Test data augmentation here
-        #############
-
-        #############
+        if self.transform:
+            image = self.transform(image)
 
         # Norm between -1.0 and 1.0
         image = (np.array(image) - 128.0)/128.0
@@ -109,4 +119,56 @@ class CheXpertDataset(Dataset):
         Returns:
             int: length of dataset.
         """
-        return len(self.image_names)
+        return self.__len
+
+
+#########################
+## Create a DataLoader ##
+#########################
+def get_dataloader(self,
+                   data_path: str,
+                   uncertainty_policy: str,
+                   logger: logging.Logger,
+                   batch_size: int,
+                   pathologies: List[str] = pathologies,
+                   transform = None,
+                   train: bool = True,
+                   shuffle: bool = True,
+                   random_seed: int = 123,
+                   num_workers: int = 4, 
+                   pin_memory: bool = False,
+                   apply_transform: bool = True):
+    """Get wrap dataset with dataloader class to help with paralellization, data loading order 
+    (for reproducibility) and makes the code o bit cleaner.
+
+    Args:
+        data_path (str): Refer to CheXpertDataset class documentation.
+        uncertainty_policy (str): Refer to CheXpertDataset class documentation.
+        logger (logging.Logger): Refer to CheXpertDataset class documentation.
+        pathologies (List[str], optional): Refer to CheXpertDataset class documentation.
+        transform (type): Refer to CheXpertDataset class documentation.
+        train (bool): Refer to CheXpertDataset class documentation.
+        shuffle (bool): Shuffle datasets (independently, train or valid).
+        random_seed (int): Seed to shuffle data, helps with reproducibility.
+
+    Returns:
+        torch.utils.data.DataLoader: Data loader from dataset randomly (or not) loaded.
+    """
+    transform = T.compose([T.lambda(lambda x: x)])
+    if apply_transform:
+        transform = T.compose([lambda x: torch.from_numpy(np.array(x, copy=True)).float().div(255).unsqueeze(0),   # tensor in [0,1]
+                            T.Normalize(mean=[0.5330], std=[0.0349])])                                             # whiten with dataset mean and stdif transform)
+
+    dataset = CheXpertDataset(data_path=input_filepath, uncertainty_policy=uncertainty_policy, logger=logger, train=train)
+    
+    indices = list(range(dataset.__len__()))
+    if shuffle:
+        np.random.seed(random_seed)
+        np.random.shuffle(indices)
+
+    sampler = SubsetRandomSampler(indices)
+    return DataLoader(dataset,
+                      batch_size=batch_size,
+                      sampler=sampler,
+                      num_workers=num_workers,
+                      pin_memory=pin_memory,)
