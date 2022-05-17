@@ -1,5 +1,5 @@
 # local package
--e .
+# -e .
 
 # external requirements
 flake8==4.0.1
@@ -16,5 +16,7 @@ opencv-python==4.5.5.64
 pyarrow==7.0.0
 optuna==2.10.0
 torch==1.11.0
+torchvision==0.12.0
+tensorboard_logger==0.1.0
 
-git+https://github.com/lucasdearaujocruz/gaussian-ram.git#egg=GDRAM
+git+https://github.com/lucasdearaujocruz/recurrent-visual-attention.git#egg=RAM

@@ -6,7 +6,7 @@ import numpy as np
 import cv2
 
 from torch import FloatTensor, Tensor
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
 import torchvision.transforms as T
 
 # CheXpert pathologies on original paper
@@ -55,12 +55,12 @@ class CheXpertDataset(Dataset):
             return None
 
         split = 'train' if train  else 'valid'
-        path = PurePath(data_path, 'CheXpert-v1.0/{split}.csv')
+        path = PurePath(data_path, f"CheXpert-v1.0/{split}.csv")
         try:
             data = pd.read_csv(path)
         except Exception as e:
             logger.error(f"Couldn't read csv at path {path}.\n{e}")
-            return None
+            quit()
 
         data['Path'] = data_path + data['Path']
         data.set_index('Path', inplace=True)
@@ -92,7 +92,6 @@ class CheXpertDataset(Dataset):
         self.image_names = data.index.to_numpy()
         self.labels = data.loc[:, pathologies].to_numpy()
         self.transform = transform
-        self.__len = len(self.image_names)
 
     def __getitem__(self, index: int) -> Union[np.array, Tensor]:
         """ Returns image and label from given index.
@@ -119,14 +118,13 @@ class CheXpertDataset(Dataset):
         Returns:
             int: length of dataset.
         """
-        return self.__len
+        return len(self.image_names)
 
 
 #########################
 ## Create a DataLoader ##
 #########################
-def get_dataloader(self,
-                   data_path: str,
+def get_dataloader(data_path: str,
                    uncertainty_policy: str,
                    logger: logging.Logger,
                    batch_size: int,
@@ -154,12 +152,12 @@ def get_dataloader(self,
     Returns:
         torch.utils.data.DataLoader: Data loader from dataset randomly (or not) loaded.
     """
-    transform = T.compose([T.lambda(lambda x: x)])
+    transform = T.Compose([T.Lambda(lambda x: x)])
     if apply_transform:
-        transform = T.compose([lambda x: torch.from_numpy(np.array(x, copy=True)).float().div(255).unsqueeze(0),   # tensor in [0,1]
+        transform = T.Compose([lambda x: torch.from_numpy(np.array(x, copy=True)).float().div(255).unsqueeze(0),   # tensor in [0,1]
                             T.Normalize(mean=[0.5330], std=[0.0349])])                                             # whiten with dataset mean and stdif transform)
 
-    dataset = CheXpertDataset(data_path=input_filepath, uncertainty_policy=uncertainty_policy, logger=logger, train=train)
+    dataset = CheXpertDataset(data_path=data_path, uncertainty_policy=uncertainty_policy, logger=logger, train=train)
     
     indices = list(range(dataset.__len__()))
     if shuffle:

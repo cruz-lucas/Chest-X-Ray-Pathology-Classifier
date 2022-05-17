@@ -79,8 +79,9 @@ docker_build:
 
 ## Run Docker Container
 docker_run:
-	docker run -it --name final-project-$(TAG) --rm --volume='/home/lucas/Projects/x-ray/Chest-X-Ray-Pathology-Classifier':/project lucas-cruz-final-project:$(TAG)
+	docker run -it --name final-project-$(TAG) --rm --volume='D:\Projeto_de_Graduacao\Chest X-Ray Pathology Classifier':/project lucas-cruz-final-project:$(TAG)
 # /home/lucas/Projects/x-ray/Chest-X-Ray-Pathology-Classifier
+# D:\Projeto_de_Graduacao\Chest X-Ray Pathology Classifier
 
 ## Install Python Dependencies
 requirements: test_environment
@@ -89,7 +90,7 @@ requirements: test_environment
 
 ## Train Models
 train:
-	$(PYTHON_INTERPRETER) src/models/train_model.py -i data/raw/ -o data/processed/ -b 128 -u U-Zeros
+	$(PYTHON_INTERPRETER) src/models/train_model.py -i data/raw/ -o data/processed/ -u U-Zeros
 
 #################################################################################
 # Self Documenting Commands                                                     #
