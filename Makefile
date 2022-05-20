@@ -79,7 +79,7 @@ docker_build:
 
 ## Run Docker Container
 docker_run:
-	docker run -it --name final-project-$(TAG) --rm --volume='/home/lucas/Projects/x-ray/Chest-X-Ray-Pathology-Classifier':/project lucas-cruz-final-project:$(TAG)
+	docker run -it --gpus all --name final-project-$(TAG) --rm --volume='/home/lucas/Projects/x-ray/Chest-X-Ray-Pathology-Classifier':/project lucas-cruz-final-project:$(TAG)
 # /home/lucas/Projects/x-ray/Chest-X-Ray-Pathology-Classifier
 # D:\Projeto_de_Graduacao\Chest X-Ray Pathology Classifier
 

@@ -163,6 +163,7 @@ def get_dataloader(data_path: str,
     dataset = CheXpertDataset(
         data_path=data_path,
         uncertainty_policy=uncertainty_policy,
+        pathologies=pathologies,
         logger=logger,
         train=train,
         transform=transform,

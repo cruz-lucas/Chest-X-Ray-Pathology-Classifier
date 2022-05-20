@@ -5,18 +5,12 @@ from pathlib import Path
 from dotenv import find_dotenv, load_dotenv
 import pandas as pd
 
+import torch
+torch.cuda.empty_cache()
+torch.cuda.memory_summary(device=None, abbreviated=False)
+
 from RAM.trainer import Trainer
 from XRAM.data.dataset import get_dataloader
-
-import torch
-
-num_workers = 0
-pin_memory = False
-seed = 123
-if torch.cuda.is_available():
-    torch.cuda.manual_seed(seed)
-    num_workers = 0
-    pin_memory = True
 
 
 # Data paths default values
@@ -40,6 +34,15 @@ def train(input_filepath: str,
 
     os.makedirs(config.ckpt_dir, exist_ok=True)
     os.makedirs(config.logs_dir, exist_ok=True)
+
+    num_workers = 1
+    pin_memory = False
+    seed = 123
+    if torch.cuda.is_available():
+        logger.info('Cuda available')
+        torch.cuda.manual_seed(seed)
+        num_workers = 0
+        pin_memory = True
 
     logger.info(f'\nStart training with:\n- Batch size:\t\t{config.batch_size}\n- Uncertainty Policy:\t"{uncertainty_policy}".')
  
