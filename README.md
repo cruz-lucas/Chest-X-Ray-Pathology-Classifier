@@ -29,8 +29,11 @@ Once downloaded, unzip folder to path:
 
 ## Components
 - Data Loader
-- Environment
-- Agent
+
+    The data loader component wraps a custom pytorch's dataset class, returning a batched pytorch's dataloader. You may choose the location where CheXpert's data was unzipped, the method/policy to handle uncertainty, the pathologies to classify, wether it's the train or validation set, and wether it's the downsampled dataset or not. The dataloader wrapper also accepts some of dataloader class parameters, as: batch size, number of workers and memory pinning. The default transformations to the data are: resize, scale pixel values between [0, 1] and normalization with dataset mean and standard deviation.
+ 
+- Trainer
+- Model
 
 ## Project Organization
 
