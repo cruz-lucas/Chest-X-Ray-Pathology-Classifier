@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 from dotenv import find_dotenv, load_dotenv
 import pandas as pd
+from typing import Union, Type
 
 import torch
 torch.cuda.empty_cache()
@@ -12,6 +13,14 @@ torch.cuda.memory_summary(device=None, abbreviated=False)
 from RAM.trainer import Trainer
 from XRAM.data.dataset import get_dataloader
 
+class Config(object):
+      
+    def __init__(self, my_dict):
+        for key in my_dict:
+            setattr(self, key, my_dict[key])
+
+config = pd.read_json("XRAM/models/config.json", orient='index', typ='series')
+config = Config(config.to_dict())
 
 # Data paths default values
 RAW_DATA_PATH = 'data/raw/'
@@ -22,15 +31,17 @@ PROCESSED_DATA_PATH = 'data/processed/'
 @click.option('--output_filepath', '-o', default=PROCESSED_DATA_PATH, type=click.Path(exists=True), help='Path to output data.')
 @click.option('--uncertainty_policy', '-u', type=str,
     help='Policy to handle uncertainty.According the CheXpert original paper, policies are "U-Ignore", "U-Zeros", "U-Ones", "U-SelfTrained", and "U-MultiClass".')
+@click.option('--hyperparam', '-p', default=None, help='Hyperparameters to train the model in tunning.')
 def train(input_filepath: str,
           output_filepath: str,
-          uncertainty_policy: str
-          ) -> None:
+          uncertainty_policy: str,
+          hyperparam: Union[None, Type[Config]]) -> None:
     #TODO: docstring; include model/train params on hyperparam tunning
     logger = logging.getLogger(__name__)
 
-    config = pd.read_json("XRAM/models/config.json", orient='index', typ='series')
-    config = Config(config.to_dict())
+    global config
+    if hyperparam is not None:
+        config = hyperparam
 
     os.makedirs(config.ckpt_dir, exist_ok=True)
     os.makedirs(config.logs_dir, exist_ok=True)
@@ -53,7 +64,8 @@ def train(input_filepath: str,
                                       batch_size=config.batch_size,
                                       shuffle=True,
                                       num_workers=num_workers,
-                                      pin_memory=pin_memory)
+                                      pin_memory=pin_memory,
+                                      resize_shape=config.resize_shape)
     valid_dataloader = get_dataloader(data_path=input_filepath,
                                       uncertainty_policy=uncertainty_policy,
                                       logger=logger,
@@ -61,7 +73,8 @@ def train(input_filepath: str,
                                       batch_size=config.batch_size,
                                       shuffle=True,
                                       num_workers=num_workers,
-                                      pin_memory=pin_memory)
+                                      pin_memory=pin_memory,
+                                      resize_shape=config.resize_shape)
     
     trainer_instance = Trainer(config, (train_dataloader, valid_dataloader))
     trainer_instance.train()
@@ -69,11 +82,6 @@ def train(input_filepath: str,
     valid_acc = trainer_instance.best_valid_acc
     return valid_acc
 
-class Config(object):
-      
-    def __init__(self, my_dict):
-        for key in my_dict:
-            setattr(self, key, my_dict[key])
 
 if __name__ == '__main__':
     log_fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'

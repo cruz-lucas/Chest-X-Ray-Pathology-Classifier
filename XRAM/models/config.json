@@ -23,7 +23,8 @@
    "lr_patience": 20,
    "train_patience": 50,
    "use_tensorboard": false,
-   "resume": false,
+   "resume": true,
    "print_freq": 10,
-   "plot_freq": 1
+   "plot_freq": 1,
+   "resize_shape": [1024, 1024]
 }

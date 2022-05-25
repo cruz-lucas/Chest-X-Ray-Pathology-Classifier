@@ -135,7 +135,8 @@ def get_dataloader(data_path: str,
                    random_seed: int = 123,
                    num_workers: int = 4, 
                    pin_memory: bool = True,
-                   apply_transform: bool = True):
+                   apply_transform: bool = True,
+                   resize_shape: tuple = (1024, 1024)):
     """Get wrap dataset with dataloader class to help with paralellization, data loading order 
     (for reproducibility) and makes the code o bit cleaner.
 
@@ -155,7 +156,7 @@ def get_dataloader(data_path: str,
     transform = T.Compose([T.Lambda(lambda x: x)])
     if apply_transform:
         transform = T.Compose([
-            T.Resize((512, 512)),
+            T.Resize(resize_shape),
             lambda x: from_numpy(np.array(x, copy=True)).float().div(255).unsqueeze(0),   # tensor in [0,1]
             T.Normalize(mean=[0.5330], std=[0.0349]),
             ]) # whiten with dataset mean and stdif transform)

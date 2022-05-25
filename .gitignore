@@ -80,6 +80,7 @@ target/
 /data/raw/*.zip
 /data/raw/CheXpert-v1.0*
 /data/processed/*.parquet
+/plots/
 
 # Mac OS-specific storage files
 .DS_Store
