@@ -55,7 +55,7 @@ def train(input_filepath: str,
         num_workers = 0
         pin_memory = True
 
-    logger.info(f'\nStart training with:\n- Batch size:\t\t{config.batch_size}\n- Uncertainty Policy:\t"{uncertainty_policy}".')
+    logger.info(f'\nStart training for {config.pathologies} with:\n- Batch size:\t\t{config.batch_size}\n- Uncertainty Policy:\t"{uncertainty_policy}".')
  
     train_dataloader = get_dataloader(data_path=input_filepath,
                                       uncertainty_policy=uncertainty_policy,
@@ -64,6 +64,7 @@ def train(input_filepath: str,
                                       batch_size=config.batch_size,
                                       shuffle=True,
                                       num_workers=num_workers,
+                                      pathologies=config.pathologies,
                                       pin_memory=pin_memory,
                                       resize_shape=config.resize_shape)
     valid_dataloader = get_dataloader(data_path=input_filepath,
@@ -71,6 +72,7 @@ def train(input_filepath: str,
                                       logger=logger,
                                       train=False,
                                       batch_size=config.batch_size,
+                                      pathologies=config.pathologies,
                                       shuffle=True,
                                       num_workers=num_workers,
                                       pin_memory=pin_memory,
