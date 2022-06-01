@@ -7,8 +7,9 @@ import pandas as pd
 from typing import Union, Type
 
 import torch
-torch.cuda.empty_cache()
-torch.cuda.memory_summary(device=None, abbreviated=False)
+if torch.cuda.is_available():
+    torch.cuda.empty_cache()
+    torch.cuda.memory_summary(device=None, abbreviated=False)
 
 from RAM.trainer import Trainer
 from XRAM.data.dataset import get_dataloader
@@ -66,7 +67,8 @@ def train(input_filepath: str,
                                       num_workers=num_workers,
                                       pathologies=config.pathologies,
                                       pin_memory=pin_memory,
-                                      resize_shape=config.resize_shape)
+                                      resize_shape=config.resize_shape,
+                                      downsampled=config.downsampled)
     valid_dataloader = get_dataloader(data_path=input_filepath,
                                       uncertainty_policy=uncertainty_policy,
                                       logger=logger,
@@ -76,7 +78,8 @@ def train(input_filepath: str,
                                       shuffle=True,
                                       num_workers=num_workers,
                                       pin_memory=pin_memory,
-                                      resize_shape=config.resize_shape)
+                                      resize_shape=config.resize_shape,
+                                      downsampled=config.downsampled)
     
     trainer_instance = Trainer(config, (train_dataloader, valid_dataloader))
     trainer_instance.train()

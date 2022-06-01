@@ -136,7 +136,8 @@ def get_dataloader(data_path: str,
                    num_workers: int = 4, 
                    pin_memory: bool = True,
                    apply_transform: bool = True,
-                   resize_shape: tuple = (1024, 1024)):
+                   resize_shape: tuple = (1024, 1024),
+                   downsampled: bool = True):
     """Get wrap dataset with dataloader class to help with paralellization, data loading order 
     (for reproducibility) and makes the code o bit cleaner.
 
@@ -168,7 +169,7 @@ def get_dataloader(data_path: str,
         logger=logger,
         train=train,
         transform=transform,
-        downsampled=True,
+        downsampled=downsampled,
         )
     
     indices = list(range(dataset.__len__()))
