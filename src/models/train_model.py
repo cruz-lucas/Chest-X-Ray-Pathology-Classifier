@@ -1,134 +1,209 @@
 import click
 import logging
-from pathlib import Path
-from dotenv import find_dotenv, load_dotenv
-
-from datetime import date
-
-import pandas as pd
+from tqdm import tqdm
+from prefetch_generator import BackgroundGenerator
+import time
 import numpy as np
 
-from src.data.dataset import Dataset
+from src.data.dataset import get_dataloader
+from src.models.utils import load_checkpoint, save_checkpoint
+from resnest import get_model
 
-from sklearn.linear_model import SGDOneClassSVM
-from sklearn.kernel_approximation import Nystroem
-from sklearn.pipeline import Pipeline
-from sklearn.model_selection import GridSearchCV, cross_val_score, StratifiedKFold, train_test_split
+import torch
+from tensorboardX import SummaryWriter
 
-import optuna
-import ast
+torch.backends.cudnn.benchmark = True
 
+# Data paths default values
 RAW_DATA_PATH = 'data/raw/'
-PROCESSED_DATA_PATH = 'data/processed/'
-
-def online_ocsvm(input_filepath: str, data: pd.DataFrame, target_class: str, batch_size: int, resize_dimension: tuple, logger:logging.Logger):
-
-    def partial_pipe_fit(pipeline_obj, df):
-        kernel_mapper = pipeline_obj.named_steps['kernel_mapper'].fit_transform(df)
-        pipeline_obj.named_steps['clf'].partial_fit(kernel_mapper)
-
-        return pipeline_obj
-
-    def objective(trial):
-        # TODO: test normalization (batch norm?)
-        
-        # Hyperparameters
-        kernel = 'rbf'
-        gamma = 0.1
-        random_state = 123
-        nu = 0.1
-        learning_rate = 'optimal' # constant, optimal, invscaling, adaptive
-
-        transform = Nystroem(kernel=kernel, gamma=gamma, random_state=random_state) 
-        clf_sgd = SGDOneClassSVM(
-            nu=nu, shuffle=True, fit_intercept=True, random_state=random_state, tol=1e-4,
-            learning_rate=learning_rate,
-        )
-        pipe_sgd = Pipeline([('kernel_mapper', transform), ('clf', clf_sgd)])
-        
-        number_of_batches = len(data) // batch_size
-        for batch_index in range(number_of_batches):
-            logger.info(f'Batch {batch_index} of {number_of_batches}')
-            batch = data.iloc[batch_index*batch_size:(batch_index+1)*batch_size].copy()
-            processed = Dataset(batch, input_filepath, resize_dimension).processed
-
-            # TODO: Check partial fit on pipeline
-            #pipe_sgd = partial_pipe_fit(pipe_sgd, X_train)
-
-    study_name = 'test'#date.today().strftime("%Y_%m_%d_%H_%M")
-    study = optuna.create_study(direction='maximize', study_name=f'{study_name}__hyperparameters_online_ocsvm', load_if_exists=True)
-    study.optimize(objective, n_trials=100)
-
-
-class PythonLiteralOption(click.Option):
-
-    def type_cast_value(self, ctx, value):
-        try:
-            return ast.literal_eval(value)
-        except:
-            raise click.BadParameter(value)
-
+CHECKPOINT_PATH = 'models/ckpt/'
 
 @click.command()
-@click.option('--input_filepath', '-i', default=RAW_DATA_PATH, type=click.Path(exists=True), help='Path to input data')
-@click.option('--output_filepath', '-o', default=PROCESSED_DATA_PATH, type=click.Path(exists=True), help='Path to output data')
-@click.option('--resize_dimension', '-r', cls=PythonLiteralOption, default=(128,128), type=tuple, help='Dimension to resize images')
-@click.option('--batch_size', '-b', default=128, type=int, help='Batch size in training')
-@click.option('--target', '-t', default='Cardiomegaly', type=str, help='Target class (one class) to train one versus all')
-@click.option('--uncertainty', '-u', type=click.Choice(['ignore', 'zeros', 'ones', 'selftrained', 'multiclass'], case_sensitive=False), help='Target class (one class) to train one versus all')
-def main(input_filepath: str, output_filepath: str, resize_dimension: tuple, batch_size: int, target: str, uncertainty: str) -> None:
-    logger = logging.getLogger(__name__)
+@click.option('--input_filepath', '-i', default=RAW_DATA_PATH, type=str, help='Path to input data.')
+@click.option('--uncertainty_policy', '-u', type=str,
+    help='Policy to handle uncertainty.According the CheXpert original paper, policies are "U-Ignore", "U-Zeros", "U-Ones", "U-SelfTrained", and "U-MultiClass".')
+@click.option('--resume', '-r', default=False, type=bool, help='Flag to resume training given checkpoint.')
+@click.option('--path_to_checkpoint', '-c', default=CHECKPOINT_PATH, type=str, help='Path to checkpoint folder.')   
+def train(input_filepath: str,
+          uncertainty_policy: str,
+          resume: bool,
+          path_to_checkpoint: str) -> None:
+    #TODO: docstring; include model/train params on hyperparam tunning, decay lr, dropout
+    logger = logging.getLogger(__name__)    
 
-    # Train dataset
-    logger.info(f'Start training with resize dimensions {resize_dimension}, batch size {batch_size}, for target {target} and handling uncertainty with {uncertainty} approach.')
+    # Hyperparameters
+    BATCH_SIZE = 64
+    RESIZE_SHAPE = (224,224)
+    LEARNING_RATE = 0.01
+    EPOCHS = 200
 
-    data = pd.read_csv(input_filepath+'/CheXpert-v1.0/train.csv')
+    logger.info(f' \
+        \n\n\
+        ------------------------- \n\
+        \n\
+        Start training with: \n\
+        - Batch size:\t\t{BATCH_SIZE} \n\
+        - Uncertainty Policy:\t"{uncertainty_policy}" \n\
+        \n\
+        ------------------------- \n')
 
-    if uncertainty == 'multiclass':
-        raise NotImplementedError('Not Implemented multiclass for handling uncertainty.')
+    # Fetch model
+    model = get_model()
 
-    elif uncertainty == 'selftrained':
-        raise NotImplementedError('Not Implemented selftraining for handling uncertainty.')
+    use_cuda = False
 
-    elif uncertainty == 'ignore':
-        data = data[(data[target] != -1)].reset_index(drop=True)
-        data[target] = np.where(data[target] == 1, 1, -1)
+    np.random.seed(1)
+    torch.manual_seed(1)
+    pin_memory = False
+    num_workers = 1
+    if torch.cuda.is_available():
+        logger.info("Cuda is available")
+        use_cuda = True
+        pin_memory = True
+        num_workers = 0
+        torch.cuda.empty_cache()
+        torch.cuda.memory_summary(device=None, abbreviated=False)
+        torch.cuda.manual_seed(1)
+        model.cuda()
 
-    elif uncertainty == 'zeros':
-        data[target] = np.where(data[target] == 1, 1, -1)
+    # Data loader
+    train_data_loader = get_dataloader(data_path=input_filepath,
+                                       uncertainty_policy=uncertainty_policy,
+                                       logger=logger,
+                                       train=True,
+                                       batch_size=BATCH_SIZE,
+                                       shuffle=True,
+                                       num_workers=num_workers,
+                                       #pathologies=config.pathologies,
+                                       pin_memory=pin_memory,
+                                       resize_shape=RESIZE_SHAPE,
+                                       downsampled=True)
+    valid_data_loader = get_dataloader(data_path=input_filepath,
+                                       uncertainty_policy=uncertainty_policy,
+                                       logger=logger,
+                                       train=False,
+                                       batch_size=BATCH_SIZE,
+                                       #pathologies=config.pathologies,
+                                       shuffle=True,
+                                       num_workers=num_workers,
+                                       pin_memory=pin_memory,
+                                       resize_shape=RESIZE_SHAPE,
+                                       downsampled=True)
 
-    elif uncertainty == 'ones':
-        data[target] = np.where((data[target] == 1) & (data[target] == -1), 1, 0)
-        data[target] = np.where(data[target] == 1, 1, -1)
-    
-    try:
-        train = pd.read_parquet(f'{output_filepath}{target}_{uncertainty}_train.parquet')
-        holdout = pd.read_parquet(f'{output_filepath}{target}_{uncertainty}_holdout.parquet')
-        logger.info(f'Train and holdout sets loaded.')
-    except FileNotFoundError:
-        logger.info(f'Train and holdout sets not found, splitting sets...')
-        train, holdout = train_test_split(data, test_size=0.2, random_state=123, stratify=data[target])
-        train.to_parquet(f'{output_filepath}{target}_{uncertainty}_train.parquet')
-        holdout.to_parquet(f'{output_filepath}{target}_{uncertainty}_holdout.parquet')
-    #online_ocsvm(input_filepath, data, target, batch_size, resize_dimension, logger)
+    # Optimizer
+    optim = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-    # Validation dataset
-    #logger.info('making final data set for validation from raw data')
+    # create losses (criterion in pytorch)
+    criterion_BCE = torch.nn.BCELoss()
 
-    #data = pd.read_csv(input_filepath+'/CheXpert-v1.0/valid.csv')
-    #run_preprocess(data, input_filepath, output_filepath, resize_dimension)
+    # load checkpoint if needed/ wanted
+    start_n_iter = 0
+    start_epoch = 0
+
+    if resume:
+        ckpt = load_checkpoint(path_to_checkpoint) # custom method for loading last checkpoint
+        model.load_state_dict(ckpt['model_state_dict'])
+        start_epoch = ckpt['epoch']
+        start_n_iter = ckpt['n_iter']
+        loss = ckpt['loss']
+        optim.load_state_dict(ckpt['optimizer_state_dict'])
+        logger.info("last checkpoint restored")
+
+    # Writer will output to ./runs/ directory by default
+    writer = SummaryWriter('models/runs')
+
+    n_iter = start_n_iter
+    for epoch in range(start_epoch, EPOCHS):
+        model.train()
+
+        # use prefetch_generator and tqdm for iterating through data
+        pbar = tqdm(enumerate(train_data_loader),
+                    total=len(train_data_loader))
+        start_time = time.time()
+
+        correct = 0.
+        total = 0.
+        # for loop going through dataset
+        for i, data in pbar:
+            # data preparation
+            img, label = data
+            if use_cuda:
+                img = img.cuda()
+                label = label.cuda()
+            
+            # It's very good practice to keep track of preparation time and computation time using tqdm to find any issues in your dataloader
+            prepare_time = start_time-time.time()
+            
+            # forward and backward pass
+            out = model(img)
+            loss = criterion_BCE(out, label)
+            optim.zero_grad()
+            loss.backward()
+            optim.step()
+            
+            predicted = np.round(out.detach().data.cpu()) #keep in mind that np.round() is a round to even function
+            total += label.size(0) * label.size(1)
+            #calculate how many images were correctly classified
+            correct += (predicted == label.cpu()).sum().item()
+                    
+            # compute computation time and *compute_efficiency*
+            process_time = start_time-time.time()-prepare_time
+            compute_efficiency = process_time/(process_time+prepare_time)
+            pbar.set_description(
+                f'Compute efficiency: {compute_efficiency:.2f}, ' 
+                f'loss: {loss.item():.2f},  epoch: {epoch}/{EPOCHS}')
+            start_time = time.time()
+            writer.add_scalar('loss/train', loss.item(), n_iter)
+            n_iter+=1
+        
+        train_accuracy = 100 * correct / total
+        # udpate tensorboardX
+        writer.add_scalar('Accuracy/train', train_accuracy, epoch)
+            
+        # maybe do a test pass every N=1 epochs
+        if epoch % 1 == 0:
+            # bring models to evaluation mode
+            model.eval()
+
+            correct = 0
+            total = 0
+
+            pbar = tqdm(enumerate(valid_data_loader),
+                    total=len(valid_data_loader)) 
+            with torch.no_grad():
+                for i, data in pbar:
+                    # data preparation
+                    img, label = data
+                    if use_cuda:
+                        img = img.cuda()
+                        label = label.cuda()
+                    
+                    out = model(img)
+                    predicted = np.round(out.data.cpu()) #keep in mind that np.round() is a round to even function
+                    total += label.size(0) * label.size(1)
+                    #calculate how many images were correctly classified
+                    correct += (predicted == label.cpu()).sum().item()
+
+            valid_accuracy = 100 * correct / total
+
+            # udpate tensorboardX
+            writer.add_scalar('Accuracy/valid', valid_accuracy, epoch)
+            
+            if epoch % 5 == 0:
+                # save checkpoint if needed
+                cpkt = {
+                    'model': model.state_dict(),
+                    'epoch': epoch,
+                    'n_iter': n_iter,
+                    'optim': optim.state_dict()
+                }
+                save_checkpoint(cpkt, 'models/ckpt/model_checkpoint.ckpt')
 
     return None
+
 
 if __name__ == '__main__':
     log_fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     logging.basicConfig(level=logging.INFO, format=log_fmt)
 
-    # not used in this stub but often useful for finding various files
-    project_dir = Path(__file__).resolve().parents[2]
-
-    # find .env automagically by walking up directories until it's found, then
-    # load up the .env entries as environment variables
-    load_dotenv(find_dotenv())
-
-    main()
+    train()

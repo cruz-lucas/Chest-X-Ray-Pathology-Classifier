@@ -2,7 +2,7 @@ FROM conda/miniconda3
 
 WORKDIR /project
 
-RUN apt-get update && apt-get install -y make ffmpeg libsm6 libxext6
+RUN apt-get update && apt-get install -y make ffmpeg libsm6 libxext6 git-all
 
 COPY requirements.txt setup.py ./
 

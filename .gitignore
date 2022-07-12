@@ -78,8 +78,9 @@ target/
 # exclude data from source control by default
 /data/raw/*.csv
 /data/raw/*.zip
-/data/raw/CheXpert-v1.0
+/data/raw/CheXpert-v1.0*
 /data/processed/*.parquet
+/plots/
 
 # Mac OS-specific storage files
 .DS_Store
