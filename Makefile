@@ -90,7 +90,7 @@ requirements: test_environment
 
 ## Train Models
 train:
-	$(PYTHON_INTERPRETER) XRAM/models/train_model.py -i data/raw/ -o data/processed/ -u U-Zeros
+	$(PYTHON_INTERPRETER) src/models/train_model.py -i data/raw/ -u U-Zeros
 
 #################################################################################
 # Self Documenting Commands                                                     #

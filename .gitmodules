@@ -1,4 +1,0 @@
-
-[submodule "XRAM/submodules/recurrent-visual-attention"]
-	path = XRAM/submodules/recurrent-visual-attention
-	url = git@github.com:lucasdearaujocruz/recurrent-visual-attention.git
