@@ -102,11 +102,11 @@ def train(input_filepath: str,
 
     if resume:
         ckpt = load_checkpoint(path_to_checkpoint) # custom method for loading last checkpoint
-        model.load_state_dict(ckpt['model_state_dict'])
+        model.load_state_dict(ckpt['model'])
         start_epoch = ckpt['epoch']
         start_n_iter = ckpt['n_iter']
-        loss = ckpt['loss']
-        optim.load_state_dict(ckpt['optimizer_state_dict'])
+        #loss = ckpt['loss']
+        optim.load_state_dict(ckpt['optim'])
         logger.info("last checkpoint restored")
 
     # Writer will output to ./runs/ directory by default
