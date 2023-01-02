@@ -7,7 +7,7 @@ import numpy as np
 
 from src.data.dataset import get_dataloader
 from src.models.utils import load_checkpoint, save_checkpoint
-from resnest import get_model
+from torchvision.models.efficientnet import efficientnet_v2_l
 
 import torch
 from tensorboardX import SummaryWriter
@@ -48,7 +48,7 @@ def train(input_filepath: str,
         ------------------------- \n')
 
     # Fetch model
-    model = get_model()
+    model = efficientnet_v2_l(num_classes=5)
 
     use_cuda = False
 
