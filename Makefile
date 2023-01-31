@@ -90,7 +90,8 @@ requirements: test_environment
 
 ## Train Models
 train:
-	$(PYTHON_INTERPRETER) src/models/train_model.py -i data/raw/ -u U-Zeros
+	$(PYTHON_INTERPRETER) src/models/train_model.py -u U-Zeros
+
 
 #################################################################################
 # Self Documenting Commands                                                     #

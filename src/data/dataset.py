@@ -33,8 +33,7 @@ class CheXpertDataset(Dataset):
                  logger: logging.Logger,
                  pathologies: List[str] = pathologies,
                  transform = None,
-                 train: bool = True,
-                 downsampled: bool = True) -> None:
+                 train: bool = True) -> None:
         """ Innitialize dataset and preprocess according to uncertainty policy.
 
         Args:
@@ -56,8 +55,7 @@ class CheXpertDataset(Dataset):
             return None
 
         split = 'train' if train  else 'valid'
-        version = '-small' if downsampled else ''
-        path = PurePath(data_path, f"CheXpert-v1.0{version}/{split}.csv")
+        path = PurePath(data_path, f"CheXpert-v1.0/{split}.csv")
         try:
             data = pd.read_csv(path)
         except Exception as e:
@@ -107,9 +105,8 @@ class CheXpertDataset(Dataset):
             np.array: Array of grayscale image.
             torch.Tensor: Tensor of labels.
         """
-        img = Image.open(self.image_names[index]).convert('L')
-        if self.transform is not None:
-            img = self.transform(img)
+        img = Image.open(self.image_names[index]).convert('RGB')
+        img = self.transform(img)
 
         label = from_numpy(self.labels[index].astype(np.float32))
         return img, label
@@ -131,15 +128,13 @@ def get_dataloader(data_path: str,
                    logger: logging.Logger,
                    batch_size: int,
                    pathologies: List[str] = pathologies,
-                   transform = None,
                    train: bool = True,
                    shuffle: bool = True,
                    random_seed: int = 123,
                    num_workers: int = 4, 
                    pin_memory: bool = True,
                    apply_transform: bool = True,
-                   resize_shape: tuple = (1024, 1024),
-                   downsampled: bool = True):
+                   resize_shape: tuple = (320, 320)):
     """Get wrap dataset with dataloader class to help with paralellization, data loading order 
     (for reproducibility) and makes the code o bit cleaner.
 
@@ -148,7 +143,6 @@ def get_dataloader(data_path: str,
         uncertainty_policy (str): Refer to CheXpertDataset class documentation.
         logger (logging.Logger): Refer to CheXpertDataset class documentation.
         pathologies (List[str], optional): Refer to CheXpertDataset class documentation.
-        transform (type): Refer to CheXpertDataset class documentation.
         train (bool): Refer to CheXpertDataset class documentation.
         shuffle (bool): Shuffle datasets (independently, train or valid).
         random_seed (int): Seed to shuffle data, helps with reproducibility.
@@ -156,12 +150,13 @@ def get_dataloader(data_path: str,
     Returns:
         torch.utils.data.DataLoader: Data loader from dataset randomly (or not) loaded.
     """
-    transform = T.Compose([T.Lambda(lambda x: x)])
+    transform = T.Compose([T.PILToTensor()])
     if apply_transform:
         transform = T.Compose([
+            T.PILToTensor(),
             T.Resize(resize_shape),
-            lambda x: from_numpy(np.array(x, copy=True)).float().div(255).unsqueeze(0),   # tensor in [0,1]
-            T.Normalize(mean=[0.5330], std=[0.0349]),
+            lambda x: from_numpy(np.array(x, copy=True)).float().div(255),#.unsqueeze(0),   # tensor in [0,1]
+            T.Normalize(mean=[0.5330], std=[0.0349])
             ]) # whiten with dataset mean and stdif transform)
 
     dataset = CheXpertDataset(
@@ -170,8 +165,7 @@ def get_dataloader(data_path: str,
         pathologies=pathologies,
         logger=logger,
         train=train,
-        transform=transform,
-        downsampled=downsampled,
+        transform=transform
         )
     
     indices = list(range(dataset.__len__()))

@@ -13,12 +13,10 @@ python-dotenv==0.19.2
 # Pillow==9.1.0
 opencv-python==4.5.5.64
 pyarrow==7.0.0
-optuna==2.10.0
 torch==1.11.0
 torchvision==0.12.0
 tensorboard_logger==0.1.0
 tensorboardX
 jupyterlab
-timm
-torch-tb-profiler
-prefetch_generator
+wandb
+torchmetrics

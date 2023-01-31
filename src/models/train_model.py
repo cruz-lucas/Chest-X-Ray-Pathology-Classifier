@@ -1,70 +1,77 @@
 import click
 import logging
 from tqdm import tqdm
-from prefetch_generator import BackgroundGenerator
+import gc
 import time
 import numpy as np
 
 from src.data.dataset import get_dataloader
 from src.models.utils import load_checkpoint, save_checkpoint
-from torchvision.models.efficientnet import efficientnet_v2_l
 
 import torch
-from tensorboardX import SummaryWriter
+import torch.optim as optim
+from torchvision.models.efficientnet import EfficientNet, efficientnet_b0
+
+from torchmetrics import AUROC, F1Score
+
+import wandb
 
 torch.backends.cudnn.benchmark = True
+np.random.seed(1)
+torch.manual_seed(1)
 
 # Data paths default values
-RAW_DATA_PATH = 'data/raw/'
+RAW_DATA_PATH = r"/media/lucas/Lucas' Backup Disk/"
 CHECKPOINT_PATH = 'models/ckpt/'
+
+def get_device():
+    device = torch.device('cpu')
+    pin_memory = False
+
+    if torch.cuda.is_available():
+        device = torch.device('cuda')
+        pin_memory = True
+        torch.cuda.empty_cache()
+        torch.cuda.memory_summary(device=None, abbreviated=False)
+
+    return device, pin_memory
+
 
 @click.command()
 @click.option('--input_filepath', '-i', default=RAW_DATA_PATH, type=str, help='Path to input data.')
 @click.option('--uncertainty_policy', '-u', type=str,
     help='Policy to handle uncertainty.According the CheXpert original paper, policies are "U-Ignore", "U-Zeros", "U-Ones", "U-SelfTrained", and "U-MultiClass".')
-@click.option('--resume', '-r', default=False, type=bool, help='Flag to resume training given checkpoint.')
-@click.option('--path_to_checkpoint', '-c', default=CHECKPOINT_PATH, type=str, help='Path to checkpoint folder.')   
 def train(input_filepath: str,
-          uncertainty_policy: str,
-          resume: bool,
-          path_to_checkpoint: str) -> None:
-    #TODO: docstring; include model/train params on hyperparam tunning, decay lr, dropout
-    logger = logging.getLogger(__name__)    
+          uncertainty_policy: str) -> None:
+
+    logger = logging.getLogger(__name__)   
+    gc.collect() 
+
+    project_name = 'Chest-X-Ray-Pathology-Classifier'
+    wandb.init(
+        project=project_name,
+        entity="lucas_cruz",
+        group="hp_optimization",
+        reinit=True,
+    )
 
     # Hyperparameters
-    BATCH_SIZE = 64
-    RESIZE_SHAPE = (224,224)
-    LEARNING_RATE = 0.01
-    EPOCHS = 200
+    BATCH_SIZE = wandb.config.batch_size
+    OPTIM_NAME = wandb.config.optimizer
+    RESIZE_SHAPE = (320,320)
+    LEARNING_RATE = wandb.config.lr
+    EPOCHS = wandb.config.epochs
+    DEVICE, PIN_MEMORY = get_device()
+    NUM_WORKERS = 1
+    NUM_CLASSES = 5
 
-    logger.info(f' \
-        \n\n\
-        ------------------------- \n\
-        \n\
-        Start training with: \n\
-        - Batch size:\t\t{BATCH_SIZE} \n\
-        - Uncertainty Policy:\t"{uncertainty_policy}" \n\
-        \n\
-        ------------------------- \n')
 
     # Fetch model
-    model = efficientnet_v2_l(num_classes=5)
+    model = efficientnet_b0(num_classes=NUM_CLASSES).to(DEVICE)
+    # create losses (criterion in pytorch)
+    criterion = torch.nn.CrossEntropyLoss()
 
-    use_cuda = False
-
-    np.random.seed(1)
-    torch.manual_seed(1)
-    pin_memory = False
-    num_workers = 1
-    if torch.cuda.is_available():
-        logger.info("Cuda is available")
-        use_cuda = True
-        pin_memory = True
-        num_workers = 0
-        torch.cuda.empty_cache()
-        torch.cuda.memory_summary(device=None, abbreviated=False)
-        torch.cuda.manual_seed(1)
-        model.cuda()
+    wandb.watch(model, criterion=criterion, log="all", log_freq=1)
 
     # Data loader
     train_data_loader = get_dataloader(data_path=input_filepath,
@@ -73,137 +80,78 @@ def train(input_filepath: str,
                                        train=True,
                                        batch_size=BATCH_SIZE,
                                        shuffle=True,
-                                       num_workers=num_workers,
-                                       #pathologies=config.pathologies,
-                                       pin_memory=pin_memory,
-                                       resize_shape=RESIZE_SHAPE,
-                                       downsampled=True)
+                                       num_workers=NUM_WORKERS,
+                                       pin_memory=PIN_MEMORY,
+                                       resize_shape=RESIZE_SHAPE)
     valid_data_loader = get_dataloader(data_path=input_filepath,
                                        uncertainty_policy=uncertainty_policy,
                                        logger=logger,
                                        train=False,
                                        batch_size=BATCH_SIZE,
-                                       #pathologies=config.pathologies,
                                        shuffle=True,
-                                       num_workers=num_workers,
-                                       pin_memory=pin_memory,
-                                       resize_shape=RESIZE_SHAPE,
-                                       downsampled=True)
+                                       num_workers=NUM_WORKERS,
+                                       pin_memory=PIN_MEMORY,
+                                       resize_shape=RESIZE_SHAPE)
+
 
     # Optimizer
-    optim = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    optimizer = getattr(optim, OPTIM_NAME)(model.parameters(), lr=LEARNING_RATE)
 
-    # create losses (criterion in pytorch)
-    criterion_BCE = torch.nn.BCELoss()
+    for epoch in range(EPOCHS):
+        train_epoch(optimizer, model, train_data_loader, DEVICE, criterion)
+        val_auc = validate(model, valid_data_loader, DEVICE, criterion)
 
-    # load checkpoint if needed/ wanted
-    start_n_iter = 0
-    start_epoch = 0
 
-    if resume:
-        ckpt = load_checkpoint(path_to_checkpoint) # custom method for loading last checkpoint
-        model.load_state_dict(ckpt['model'])
-        start_epoch = ckpt['epoch']
-        start_n_iter = ckpt['n_iter']
-        #loss = ckpt['loss']
-        optim.load_state_dict(ckpt['optim'])
-        logger.info("last checkpoint restored")
+    wandb.run.summary["final_auc"] = val_auc
+    wandb.run.summary["state"] = "completed"
+    wandb.finish(quiet=True)
 
-    # Writer will output to ./runs/ directory by default
-    writer = SummaryWriter('models/runs')
+    return val_auc
 
-    n_iter = start_n_iter
-    for epoch in range(start_epoch, EPOCHS):
-        model.train()
 
-        # use prefetch_generator and tqdm for iterating through data
-        pbar = tqdm(enumerate(train_data_loader),
-                    total=len(train_data_loader))
-        start_time = time.time()
+def train_epoch(optimizer, model, train_loader, device, criterion):
+    model.train()
+    for batch_idx, (data, target) in enumerate(train_loader):
+        data, target = data.to(device), target.to(device)
 
-        correct = 0.
-        total = 0.
-        # for loop going through dataset
-        for i, data in pbar:
-            # data preparation
-            img, label = data
-            if use_cuda:
-                img = img.cuda()
-                label = label.cuda()
-            
-            # It's very good practice to keep track of preparation time and computation time using tqdm to find any issues in your dataloader
-            prepare_time = start_time-time.time()
-            
-            # forward and backward pass
-            out = model(img)
-            loss = criterion_BCE(out, label)
-            optim.zero_grad()
-            loss.backward()
-            optim.step()
-            
-            predicted = np.round(out.detach().data.cpu()) #keep in mind that np.round() is a round to even function
-            total += label.size(0) * label.size(1)
-            #calculate how many images were correctly classified
-            correct += (predicted == label.cpu()).sum().item()
-                    
-            # compute computation time and *compute_efficiency*
-            process_time = start_time-time.time()-prepare_time
-            compute_efficiency = process_time/(process_time+prepare_time)
-            pbar.set_description(
-                f'Compute efficiency: {compute_efficiency:.2f}, ' 
-                f'loss: {loss.item():.2f},  epoch: {epoch}/{EPOCHS}')
-            start_time = time.time()
-            writer.add_scalar('loss/train', loss.item(), n_iter)
-            n_iter+=1
-        
-        train_accuracy = 100 * correct / total
-        # udpate tensorboardX
-        writer.add_scalar('Accuracy/train', train_accuracy, epoch)
-            
-        # maybe do a test pass every N=1 epochs
-        if epoch % 1 == 0:
-            # bring models to evaluation mode
-            model.eval()
+        optimizer.zero_grad()
+        output = model(data)
+        loss = criterion(output, target)
+        loss.backward()
+        optimizer.step()
 
-            correct = 0
-            total = 0
+        auc = AUROC(task='multilabel', num_classes=5)(output, target)
+        f1 = F1Score(task='multilabel', num_classes=5)(output, target)
 
-            pbar = tqdm(enumerate(valid_data_loader),
-                    total=len(valid_data_loader)) 
-            with torch.no_grad():
-                for i, data in pbar:
-                    # data preparation
-                    img, label = data
-                    if use_cuda:
-                        img = img.cuda()
-                        label = label.cuda()
-                    
-                    out = model(img)
-                    predicted = np.round(out.data.cpu()) #keep in mind that np.round() is a round to even function
-                    total += label.size(0) * label.size(1)
-                    #calculate how many images were correctly classified
-                    correct += (predicted == label.cpu()).sum().item()
+        wandb.log({
+            "batch_loss": loss.item(),
+        })
+    wandb.log({
+        "training AUC": auc,
+        "training F1": f1,
+    })
 
-            valid_accuracy = 100 * correct / total
 
-            # udpate tensorboardX
-            writer.add_scalar('Accuracy/valid', valid_accuracy, epoch)
-            
-            if epoch % 5 == 0:
-                # save checkpoint if needed
-                cpkt = {
-                    'model': model.state_dict(),
-                    'epoch': epoch,
-                    'n_iter': n_iter,
-                    'optim': optim.state_dict()
-                }
-                save_checkpoint(cpkt, 'models/ckpt/model_checkpoint.ckpt')
+def validate(model, val_loader, device, criterion):
+    model.eval()
+    with torch.no_grad():
+        for batch_idx, (data, target) in enumerate(val_loader):
+            data, target = data.to(device), target.to(device)
+            output = model(data)
+            auc = AUROC(task='multilabel', num_classes=5)(output, target)
+            f1 = F1Score(task='multilabel', num_classes=5)(output, target)
 
-    return None
+        wandb.log({
+            "valid AUC": auc,
+            "valid F1": f1,
+        })
+
+    return auc  
 
 
 if __name__ == '__main__':
     log_fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     logging.basicConfig(level=logging.INFO, format=log_fmt)
+
 
     train()
