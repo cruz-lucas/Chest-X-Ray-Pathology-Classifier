@@ -10,9 +10,9 @@ from src.models.utils import load_checkpoint, save_checkpoint
 
 import torch
 import torch.optim as optim
-from torchvision.models.efficientnet import EfficientNet, efficientnet_b0
+from torchvision.models.efficientnet import efficientnet_v2_s
 
-from torchmetrics import AUROC, F1Score
+from torchmetrics.classification import MultilabelAUROC, MultilabelF1Score
 
 import wandb
 
@@ -33,6 +33,9 @@ def get_device():
         pin_memory = True
         torch.cuda.empty_cache()
         torch.cuda.memory_summary(device=None, abbreviated=False)
+
+    else:
+        print("warning! GPU not available.")
 
     return device, pin_memory
 
@@ -59,15 +62,15 @@ def train(input_filepath: str,
     BATCH_SIZE = wandb.config.batch_size
     OPTIM_NAME = wandb.config.optimizer
     RESIZE_SHAPE = (320,320)
+    DEVICE, PIN_MEMORY = get_device()
     LEARNING_RATE = wandb.config.lr
     EPOCHS = wandb.config.epochs
-    DEVICE, PIN_MEMORY = get_device()
     NUM_WORKERS = 1
     NUM_CLASSES = 5
 
 
     # Fetch model
-    model = efficientnet_b0(num_classes=NUM_CLASSES).to(DEVICE)
+    model = efficientnet_v2_s(num_classes=NUM_CLASSES).to(DEVICE)
     # create losses (criterion in pytorch)
     criterion = torch.nn.CrossEntropyLoss()
 
@@ -98,8 +101,8 @@ def train(input_filepath: str,
     optimizer = getattr(optim, OPTIM_NAME)(model.parameters(), lr=LEARNING_RATE)
 
     for epoch in range(EPOCHS):
-        train_epoch(optimizer, model, train_data_loader, DEVICE, criterion)
-        val_auc = validate(model, valid_data_loader, DEVICE, criterion)
+        train_epoch(optimizer, model, train_data_loader, DEVICE, criterion, NUM_CLASSES, BATCH_SIZE)
+        val_auc = validate(model, valid_data_loader, DEVICE, criterion, NUM_CLASSES, BATCH_SIZE)
 
 
     wandb.run.summary["final_auc"] = val_auc
@@ -109,9 +112,16 @@ def train(input_filepath: str,
     return val_auc
 
 
-def train_epoch(optimizer, model, train_loader, device, criterion):
+def train_epoch(optimizer, model, train_loader, device, criterion, num_classes, batch_size):
     model.train()
+    
+    outputs = torch.tensor([]).to(device)
+    targets = torch.tensor([]).to(device)
+    
     for batch_idx, (data, target) in enumerate(train_loader):
+        if data.size(dim=0) != batch_size:
+            continue
+
         data, target = data.to(device), target.to(device)
 
         optimizer.zero_grad()
@@ -120,33 +130,47 @@ def train_epoch(optimizer, model, train_loader, device, criterion):
         loss.backward()
         optimizer.step()
 
-        auc = AUROC(task='multilabel', num_classes=5)(output, target)
-        f1 = F1Score(task='multilabel', num_classes=5)(output, target)
-
+        outputs = torch.cat((outputs, output.detach()), 0)
+        targets = torch.cat((targets, target.detach()), 0)
+        
         wandb.log({
             "batch_loss": loss.item(),
         })
+
+    auc = MultilabelAUROC(num_labels=num_classes).to(device)(outputs, targets)
+    f1 = MultilabelF1Score(num_labels=num_classes).to(device)(outputs, targets)
+
     wandb.log({
         "training AUC": auc,
         "training F1": f1,
     })
 
 
-def validate(model, val_loader, device, criterion):
+def validate(model, val_loader, device, criterion, num_classes, batch_size):
     model.eval()
+
+    outputs = torch.tensor([]).to(device)
+    targets = torch.tensor([]).to(device)
+
     with torch.no_grad():
         for batch_idx, (data, target) in enumerate(val_loader):
+            if data.size(dim=0) != batch_size:
+                continue
             data, target = data.to(device), target.to(device)
             output = model(data)
-            auc = AUROC(task='multilabel', num_classes=5)(output, target)
-            f1 = F1Score(task='multilabel', num_classes=5)(output, target)
+
+            outputs = torch.cat((outputs, output.detach()), 0)
+            targets = torch.cat((targets, target.detach()), 0)
+
+        auc = MultilabelAUROC(num_labels=num_classes).to(device)(outputs, targets)
+        f1 = MultilabelF1Score(num_labels=num_classes).to(device)(outputs, targets)
 
         wandb.log({
             "valid AUC": auc,
             "valid F1": f1,
         })
 
-    return auc  
+    return auc
 
 
 if __name__ == '__main__':
