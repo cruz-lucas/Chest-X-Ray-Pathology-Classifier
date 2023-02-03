@@ -8,7 +8,9 @@ metric:
   goal: maximize
 parameters: 
   batch_size: 
-    values: [8]
+    values:
+      - 16
+      - 32
   epochs:
     values: [5, 10, 15]
   lr: 
@@ -18,7 +20,7 @@ parameters:
   optimizer:
     values: ["Adam", "SGD"]
 command:
-  - /home/lucas/Projects/x-ray/Chest-X-Ray-Pathology-Classifier/env/bin/python3
+  - python
   - ${program}
   - "-u"
   - "U-Zeros"
