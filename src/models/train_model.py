@@ -61,7 +61,7 @@ def train(input_filepath: str,
     # Hyperparameters
     BATCH_SIZE = wandb.config.batch_size
     OPTIM_NAME = wandb.config.optimizer
-    RESIZE_SHAPE = (320,320)
+    RESIZE_SHAPE = (384,384)
     DEVICE, PIN_MEMORY = get_device()
     LEARNING_RATE = wandb.config.lr
     EPOCHS = wandb.config.epochs
@@ -70,7 +70,8 @@ def train(input_filepath: str,
 
 
     # Fetch model
-    model = efficientnet_v2_s(num_classes=NUM_CLASSES).to(DEVICE)
+    model = efficientnet_v2_s(weights="DEFAULT").to(DEVICE)
+    model.classifier[1] = torch.nn.Linear(1280, NUM_CLASSES).to(DEVICE)
     # create losses (criterion in pytorch)
     criterion = torch.nn.CrossEntropyLoss()
 
@@ -101,14 +102,14 @@ def train(input_filepath: str,
     optimizer = getattr(optim, OPTIM_NAME)(model.parameters(), lr=LEARNING_RATE)
     scaler = torch.cuda.amp.GradScaler()
 
+    wandb.log({
+        "Uncertainty policy": uncertainty_policy
+    })
+
     for epoch in range(EPOCHS):
         train_epoch(optimizer, scaler, model, train_data_loader, DEVICE, criterion, NUM_CLASSES, BATCH_SIZE, epoch)
         val_auc = validate(model, valid_data_loader, DEVICE, criterion, NUM_CLASSES, BATCH_SIZE, epoch)
 
-    wandb.log({
-        "training AUC": auc,
-        "training F1": f1,
-    })
     wandb.run.summary["final auc"] = val_auc
     wandb.run.summary["state"] = "completed"
     wandb.finish(quiet=True)

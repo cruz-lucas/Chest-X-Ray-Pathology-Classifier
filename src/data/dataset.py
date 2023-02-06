@@ -64,7 +64,10 @@ class CheXpertDataset(Dataset):
 
         data['Path'] = data_path + data['Path']
         data.set_index('Path', inplace=True)
+
+        #data = data.loc[data['Frontal/Lateral'] == 'Frontal'].copy()
         data = data.loc[:, pathologies].copy()
+        
         data.fillna(0, inplace=True)
 
         # U-Ignore
