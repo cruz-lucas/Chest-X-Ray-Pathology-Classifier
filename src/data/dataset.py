@@ -72,8 +72,7 @@ class CheXpertDataset(Dataset):
 
         # U-Ignore
         if uncertainty_policy == uncertainty_policies[0]:
-            logger.error(f"Uncertainty policy {uncertainty_policy} not implemented.")
-            return None
+            data = data.loc[(data[pathologies] == -1).any(1)].copy()
         
         # U-Zeros
         elif uncertainty_policy == uncertainty_policies[1]:

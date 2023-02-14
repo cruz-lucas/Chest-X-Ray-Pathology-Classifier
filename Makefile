@@ -79,9 +79,10 @@ docker_build:
 
 ## Run Docker Container
 docker_run:
-	docker run -it --gpus all --name final-project-$(TAG) --rm --volume='/home/lucas/Projects/x-ray/Chest-X-Ray-Pathology-Classifier':/project lucas-cruz-final-project:$(TAG)
+	docker run -it --gpus all --name lucas-cruz-x-ray --rm -v='C:\Users\hurbl\OneDrive\Área de Trabalho\Loon Factory\repository\Chest-X-Ray-Pathology-Classifier\':'/project' -v='D:\CheXpert-v1.0':'/project/data/raw/CheXpert-v1.0' lucas-cruz-x-ray
 # /home/lucas/Projects/x-ray/Chest-X-Ray-Pathology-Classifier
 # D:\Projeto_de_Graduacao\Chest X-Ray Pathology Classifier
+#docker run --hostname=3d9f26003010 --mac-address=02:42:ac:11:00:02 --env=PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin --env=LANG=C.UTF-8 --env=GPG_KEY=E3FF2839C048B25C084DEBE9B26995E310250568 --env=PYTHON_VERSION=3.8.16 --env=PYTHON_PIP_VERSION=22.0.4 --env=PYTHON_SETUPTOOLS_VERSION=57.5.0 --env=PYTHON_GET_PIP_URL=https://github.com/pypa/get-pip/raw/66030fa03382b4914d4c4d0896961a0bdeeeb274/public/get-pip.py --env=PYTHON_GET_PIP_SHA256=1e501cf004eac1b7eb1f97266d28f995ae835d30250bec7f8850562703067dc6 --volume=C:\Users\hurbl\OneDrive\Área de Trabalho\Loon Factory\repository\Chest-X-Ray-Pathology-Classifier\:/project --volume=D:\CheXpert-v1.0:/project/data/raw/CheXpert-v1.0 --workdir=/project --restart=no --runtime=runc -t -d lucas-cruz-x-ray
 
 ## Install Python Dependencies
 requirements: test_environment
@@ -90,7 +91,7 @@ requirements: test_environment
 
 ## Train Models
 train:
-	$(PYTHON_INTERPRETER) src/models/train_model.py -u U-Zeros
+	$(PYTHON_INTERPRETER) src/models/train_model.py -u U-Ignore
 
 
 #################################################################################
