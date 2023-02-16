@@ -73,7 +73,7 @@ def train(input_filepath: str,
     model = efficientnet_v2_s(weights="DEFAULT").to(DEVICE)
     model.classifier[1] = torch.nn.Linear(1280, NUM_CLASSES).to(DEVICE)
     # create losses (criterion in pytorch)
-    criterion = torch.nn.BCEWithLogitsLoss()
+    criterion = torch.nn.CrossEntropyLoss()
 
     wandb.watch(model, criterion=criterion, log="all", log_freq=1)
 

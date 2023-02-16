@@ -72,7 +72,7 @@ class CheXpertDataset(Dataset):
 
         # U-Ignore
         if uncertainty_policy == uncertainty_policies[0]:
-            data = data.loc[(data[pathologies] == -1).any(1)].copy()
+            data = data.loc[(data[pathologies] != -1).all(axis=1)].copy()
         
         # U-Zeros
         elif uncertainty_policy == uncertainty_policies[1]:
