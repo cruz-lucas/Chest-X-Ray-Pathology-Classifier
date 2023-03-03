@@ -152,14 +152,12 @@ def get_dataloader(data_path: str,
     Returns:
         torch.utils.data.DataLoader: Data loader from dataset randomly (or not) loaded.
     """
-    transform = T.Compose([T.PILToTensor()])
-    if apply_transform:
-        transform = T.Compose([
-            T.PILToTensor(),
-            T.Resize(resize_shape),
-            lambda x: from_numpy(np.array(x, copy=True)).float().div(255),#.unsqueeze(0),   # tensor in [0,1]
-            T.Normalize(mean=[0.5330], std=[0.0349])
-            ]) # whiten with dataset mean and stdif transform)
+
+    transform = T.Compose([
+        T.Resize(resize_shape),
+        T.ToTensor(),
+        T.Normalize(mean=[0.5330], std=[0.0349])
+    ]) # whiten with dataset mean and stdif transform)
 
     dataset = CheXpertDataset(
         data_path=data_path,
