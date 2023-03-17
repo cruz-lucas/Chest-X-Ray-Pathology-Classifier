@@ -8,20 +8,23 @@ metric:
   goal: maximize
 parameters: 
   batch_size: 
-    values: [8]
+    values:
+      - 16
+      - 32
+      - 64
   epochs:
-    values: [5, 10, 15]
+    values: [10, 15]
   lr: 
     max: 0.1
     min: 0.0001
     distribution: log_uniform_values
   optimizer:
-    values: ["Adam", "SGD"]
+    values: ["Adam"]
 command:
-  - /home/lucas/Projects/x-ray/Chest-X-Ray-Pathology-Classifier/env/bin/python3
+  - python
   - ${program}
   - "-u"
-  - "U-Zeros"
+  - "U-Ignore"
 early_terminate:
   type: hyperband
   min_iter: 3

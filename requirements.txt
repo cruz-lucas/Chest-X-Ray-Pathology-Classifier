@@ -13,12 +13,16 @@ python-dotenv==0.19.2
 # Pillow==9.1.0
 opencv-python==4.5.5.64
 pyarrow==7.0.0
+<<<<<<< HEAD
 torch
 torchvision
 torchdata
 fsspec
 gcsfs
+=======
+>>>>>>> 
 jupyterlab
 wandb
 torchmetrics
 scikit-learn
+tqdm
