@@ -13,7 +13,7 @@ python-dotenv==0.19.2
 # Pillow==9.1.0
 opencv-python==4.5.5.64
 pyarrow==7.0.0
-#torch==1.13.1#==1.11.0
+torch>=2.0.0
 torchvision
 tensorboard_logger
 tensorboardX

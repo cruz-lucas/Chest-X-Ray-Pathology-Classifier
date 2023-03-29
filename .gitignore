@@ -94,3 +94,6 @@ target/
 
 # wand
 *wand*
+
+/models/runs/*
+/models/ckpt/*

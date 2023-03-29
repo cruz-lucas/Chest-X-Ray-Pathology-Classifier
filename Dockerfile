@@ -1,8 +1,6 @@
-FROM conda/miniconda3
+FROM pytorch/pytorch:2.0.0-cuda11.7-cudnn8-devel
 
 WORKDIR /project
-
-RUN apt-get update && apt-get install -y make ffmpeg libsm6 libxext6 git-all
 
 COPY requirements.txt setup.py ./
 

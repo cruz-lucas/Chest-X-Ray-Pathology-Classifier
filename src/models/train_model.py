@@ -45,7 +45,8 @@ def get_device():
 @click.option('--uncertainty_policy', '-u', type=str,
     help='Policy to handle uncertainty.According the CheXpert original paper, policies are "U-Ignore", "U-Zeros", "U-Ones", "U-SelfTrained", and "U-MultiClass".')
 def train(input_filepath: str,
-          uncertainty_policy: str) -> None:
+          uncertainty_policy: str,
+          dataloader) -> None:
 
     logger = logging.getLogger(__name__)   
     gc.collect() 
@@ -77,25 +78,29 @@ def train(input_filepath: str,
 
     wandb.watch(model, criterion=criterion, log="all", log_freq=1)
 
-    # Data loader
-    train_data_loader = get_dataloader(data_path=input_filepath,
-                                       uncertainty_policy=uncertainty_policy,
-                                       logger=logger,
-                                       train=True,
-                                       batch_size=BATCH_SIZE,
-                                       shuffle=True,
-                                       num_workers=NUM_WORKERS,
-                                       pin_memory=PIN_MEMORY,
-                                       resize_shape=RESIZE_SHAPE)
-    valid_data_loader = get_dataloader(data_path=input_filepath,
-                                       uncertainty_policy=uncertainty_policy,
-                                       logger=logger,
-                                       train=False,
-                                       batch_size=BATCH_SIZE,
-                                       shuffle=True,
-                                       num_workers=NUM_WORKERS,
-                                       pin_memory=PIN_MEMORY,
-                                       resize_shape=RESIZE_SHAPE)
+    if dataloader is None:
+        # Data loader
+        train_data_loader = get_dataloader(data_path=input_filepath,
+                                        uncertainty_policy=uncertainty_policy,
+                                        logger=logger,
+                                        train=True,
+                                        batch_size=BATCH_SIZE,
+                                        shuffle=True,
+                                        num_workers=NUM_WORKERS,
+                                        pin_memory=PIN_MEMORY,
+                                        resize_shape=RESIZE_SHAPE)
+        valid_data_loader = get_dataloader(data_path=input_filepath,
+                                        uncertainty_policy=uncertainty_policy,
+                                        logger=logger,
+                                        train=False,
+                                        batch_size=BATCH_SIZE,
+                                        shuffle=True,
+                                        num_workers=NUM_WORKERS,
+                                        pin_memory=PIN_MEMORY,
+                                        resize_shape=RESIZE_SHAPE)
+    else:
+        train_data_loader = dataloader[0]
+        valid_data_loader = dataloader[1]
 
 
     # Optimizer
