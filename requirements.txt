@@ -15,8 +15,11 @@ opencv-python==4.5.5.64
 pyarrow==7.0.0
 torch>=2.0.0
 torchvision
-tensorboard_logger
-tensorboardX
+torchdata
+fsspec
+gcsfs
+=======
+>>>>>>> 
 jupyterlab
 wandb
 torchmetrics
