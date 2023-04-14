@@ -9,7 +9,7 @@ BUCKET = [OPTIONAL] your-bucket-for-syncing-data (do not include 's3://')
 PROFILE = default
 PROJECT_NAME = Chest X-Ray Pathology Classifier
 PYTHON_INTERPRETER = python3
-REGISTRY = gcr.io/labshurb/lucas-cruz-final-project
+REGISTRY = us-central1-docker.pkg.dev/labshurb/lucas-cruz-final-project
 
 ifeq (,$(shell which conda))
 HAS_CONDA=False
@@ -74,6 +74,10 @@ test_environment:
 # PROJECT RULES                                                                 #
 #################################################################################
 
+curl -fsSL "https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v2.1.6/docker-credential-gcr_linux_amd64-2.1.6.tar.gz" \
+| tar xz docker-credential-gcr \
+&& chmod +x docker-credential-gcr && sudo mv docker-credential-gcr /usr/bin/
+
 ## Build Docker Image
 docker_build:
 	docker build -t lucas-cruz-final-project:$(TAG) -f Dockerfile .
@@ -86,8 +90,8 @@ docker_run:
 #docker run --hostname=3d9f26003010 --mac-address=02:42:ac:11:00:02 --env=PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin --env=LANG=C.UTF-8 --env=GPG_KEY=E3FF2839C048B25C084DEBE9B26995E310250568 --env=PYTHON_VERSION=3.8.16 --env=PYTHON_PIP_VERSION=22.0.4 --env=PYTHON_SETUPTOOLS_VERSION=57.5.0 --env=PYTHON_GET_PIP_URL=https://github.com/pypa/get-pip/raw/66030fa03382b4914d4c4d0896961a0bdeeeb274/public/get-pip.py --env=PYTHON_GET_PIP_SHA256=1e501cf004eac1b7eb1f97266d28f995ae835d30250bec7f8850562703067dc6 --volume=C:\Users\hurbl\OneDrive\Área de Trabalho\Loon Factory\repository\Chest-X-Ray-Pathology-Classifier\:/project --volume=D:\CheXpert-v1.0:/project/data/raw/CheXpert-v1.0 --workdir=/project --restart=no --runtime=runc -t -d lucas-cruz-x-ray
 
 docker_push:
-	docker tag lucas-cruz-final-project $(REGISTRY)
-	docker push $(REGISTRY)
+	docker tag lucas-cruz-final-project:dev $(REGISTRY)/xray:latest
+	docker push $(REGISTRY)/xray:latest
 
 ## Install Python Dependencies
 requirements: test_environment

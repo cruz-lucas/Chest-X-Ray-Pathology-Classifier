@@ -46,7 +46,7 @@ def get_device():
     help='Policy to handle uncertainty.According the CheXpert original paper, policies are "U-Ignore", "U-Zeros", "U-Ones", "U-SelfTrained", and "U-MultiClass".')
 def train(input_filepath: str,
           uncertainty_policy: str,
-          dataloader) -> None:
+          dataloader: list) -> None:
 
     logger = logging.getLogger(__name__)   
     gc.collect() 
