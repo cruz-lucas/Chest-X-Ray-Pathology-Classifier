@@ -1,106 +1,85 @@
-.PHONY: clean data lint requirements sync_data_to_s3 sync_data_from_s3
+.PHONY: clean data lint format requirements sync_data_down sync_data_up
 
 #################################################################################
 # GLOBALS                                                                       #
 #################################################################################
 
 PROJECT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
-BUCKET = [OPTIONAL] your-bucket-for-syncing-data (do not include 's3://')
-PROFILE = default
 PROJECT_NAME = Chest X-Ray Pathology Classifier
-PYTHON_INTERPRETER = python3
+PYTHON_VERSION = 3.10
+PYTHON_INTERPRETER = python
+IMAGE_NAME = x-ray
+CONTAINER_NAME = x-ray
 REGISTRY = us-central1-docker.pkg.dev/labshurb/lucas-cruz-final-project
-
-ifeq (,$(shell which conda))
-HAS_CONDA=False
-else
-HAS_CONDA=True
-endif
-
-TAG = dev
+TAG = latest
 
 #################################################################################
 # COMMANDS                                                                      #
 #################################################################################
+
+
+## Install Python Dependencies
+requirements:
+	$(PYTHON_INTERPRETER) -m pip install -U pip setuptools wheel
+	$(PYTHON_INTERPRETER) -m pip install -r requirements.txt
+
+
+## Build docker image
+docker_build:
+	docker build -t $(IMAGE_NAME):$(TAG) -f Dockerfile .
+
+
+## Run docker interactively
+docker_run:
+	docker run -it --gpus all --name $(CONTAINER_NAME) --rm $(IMAGE_NAME)
+
+
+## Push image to cloud
+docker_push:
+	docker tag $(IMAGE_NAME):$(TAG) $(REGISTRY)/xray:latest
+	docker push $(REGISTRY)/xray:latest
+
 
 ## Delete all compiled Python files
 clean:
 	find . -type f -name "*.py[co]" -delete
 	find . -type d -name "__pycache__" -delete
 
-## Lint using flake8
+
+## Lint using flake8 and black (use `make format` to do formatting)
 lint:
 	flake8 src
+	black --check --config pyproject.toml src
 
-## Upload Data to S3
-sync_data_to_s3:
-ifeq (default,$(PROFILE))
-	aws s3 sync data/ s3://$(BUCKET)/data/
-else
-	aws s3 sync data/ s3://$(BUCKET)/data/ --profile $(PROFILE)
-endif
 
-## Download Data from S3
-sync_data_from_s3:
-ifeq (default,$(PROFILE))
-	aws s3 sync s3://$(BUCKET)/data/ data/
-else
-	aws s3 sync s3://$(BUCKET)/data/ data/ --profile $(PROFILE)
-endif
+## Format source code with black
+format:
+	black --config pyproject.toml src
+
+
+## Download Data from storage system
+sync_data_down:
+	gsutil rsync gs://bucket-name/data/ data/
+	
+
+## Upload Data to storage system
+sync_data_up:
+	gsutil rsync data/ gs://bucket-name/data/
+
 
 ## Set up python interpreter environment
 create_environment:
-ifeq (True,$(HAS_CONDA))
-		@echo ">>> Detected conda, creating conda environment."
-ifeq (3,$(findstring 3,$(PYTHON_INTERPRETER)))
-	conda create --name $(PROJECT_NAME) python=3
-else
-	conda create --name $(PROJECT_NAME) python=2.7
-endif
-		@echo ">>> New conda env created. Activate with:\nsource activate $(PROJECT_NAME)"
-else
-	$(PYTHON_INTERPRETER) -m pip install -q virtualenv virtualenvwrapper
-	@echo ">>> Installing virtualenvwrapper if not already installed.\nMake sure the following lines are in shell startup file\n\
-	export WORKON_HOME=$$HOME/.virtualenvs\nexport PROJECT_HOME=$$HOME/Devel\nsource /usr/local/bin/virtualenvwrapper.sh\n"
-	@bash -c "source `which virtualenvwrapper.sh`;mkvirtualenv $(PROJECT_NAME) --python=$(PYTHON_INTERPRETER)"
-	@echo ">>> New virtualenv created. Activate with:\nworkon $(PROJECT_NAME)"
-endif
+	$(PYTHON_INTERPRETER) -m venv env
 
-## Test python environment is setup correctly
-test_environment:
-	$(PYTHON_INTERPRETER) test_environment.py
 
 #################################################################################
 # PROJECT RULES                                                                 #
 #################################################################################
 
-curl -fsSL "https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v2.1.6/docker-credential-gcr_linux_amd64-2.1.6.tar.gz" \
-| tar xz docker-credential-gcr \
-&& chmod +x docker-credential-gcr && sudo mv docker-credential-gcr /usr/bin/
 
-## Build Docker Image
-docker_build:
-	docker build -t lucas-cruz-final-project:$(TAG) -f Dockerfile .
-
-## Run Docker Container
-docker_run:
-	docker run -it --gpus all --name lucas-cruz-final-project --rm -v='C:\Users\hurbl\OneDrive\Área de Trabalho\Loon Factory\repository\Chest-X-Ray-Pathology-Classifier\':'/project' -v='D:\':'/project/data/raw' lucas-cruz-final-project
-# /home/lucas/Projects/x-ray/Chest-X-Ray-Pathology-Classifier
-# D:\Projeto_de_Graduacao\Chest X-Ray Pathology Classifier
-#docker run --hostname=3d9f26003010 --mac-address=02:42:ac:11:00:02 --env=PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin --env=LANG=C.UTF-8 --env=GPG_KEY=E3FF2839C048B25C084DEBE9B26995E310250568 --env=PYTHON_VERSION=3.8.16 --env=PYTHON_PIP_VERSION=22.0.4 --env=PYTHON_SETUPTOOLS_VERSION=57.5.0 --env=PYTHON_GET_PIP_URL=https://github.com/pypa/get-pip/raw/66030fa03382b4914d4c4d0896961a0bdeeeb274/public/get-pip.py --env=PYTHON_GET_PIP_SHA256=1e501cf004eac1b7eb1f97266d28f995ae835d30250bec7f8850562703067dc6 --volume=C:\Users\hurbl\OneDrive\Área de Trabalho\Loon Factory\repository\Chest-X-Ray-Pathology-Classifier\:/project --volume=D:\CheXpert-v1.0:/project/data/raw/CheXpert-v1.0 --workdir=/project --restart=no --runtime=runc -t -d lucas-cruz-x-ray
-
-docker_push:
-	docker tag lucas-cruz-final-project:dev $(REGISTRY)/xray:latest
-	docker push $(REGISTRY)/xray:latest
-
-## Install Python Dependencies
-requirements: test_environment
-	$(PYTHON_INTERPRETER) -m pip install -U pip setuptools wheel
-	$(PYTHON_INTERPRETER) -m pip install -r requirements.txt
-
-## Train Models
+## train local
 train:
-	$(PYTHON_INTERPRETER) src/models/train_model.py -u U-Ignore
+	$(PYTHON_INTERPRETER) src/train_model.py --input_filepath "gcs://chexpert_database_stanford/"
 
 
 #################################################################################
