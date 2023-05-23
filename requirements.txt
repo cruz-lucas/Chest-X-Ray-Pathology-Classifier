@@ -24,3 +24,6 @@ scikit-learn
 tqdm
 pytorch-lightning
 protobuf==3.20.*
+accelerate
+datasets
+transformers

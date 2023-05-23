@@ -256,10 +256,16 @@ def main(args):
                 optim='adamw_torch',
                 num_train_epochs=config.epochs,
                 learning_rate=config.lr,
+                lr_scheduler_type='linear',
+                warmup_steps=1_000,
+                max_grad_norm=1.0,
                 per_device_train_batch_size=config.batch_size,
                 gradient_accumulation_steps=config.grad_acc,
-                gradient_checkpointing=True,
+                weight_decay=0.1,
+                #gradient_checkpointing=True,
+                auto_find_batch_size=True,
                 fp16=True,
+                dataloader_drop_last=True,
                 load_best_model_at_end=True,
             )
 
