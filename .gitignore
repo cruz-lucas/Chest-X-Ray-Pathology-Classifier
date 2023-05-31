@@ -97,3 +97,11 @@ target/
 
 /models/runs/*
 /models/ckpt/*
+
+/model_output/*
+/models/*
+/output/*
+
+*/model_output/*
+*/models/*
+*/output/*

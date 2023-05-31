@@ -14,7 +14,12 @@ import torch
 from torch import Tensor
 from torch.utils.data import Dataset
 import torchvision.transforms as T
-from torchmetrics.classification import MultilabelAUROC, MultilabelF1Score, MultilabelPrecisionRecallCurve
+from torchmetrics.classification import (
+    MultilabelAUROC,
+    MultilabelF1Score,
+    MultilabelPrecisionRecallCurve,
+    MultilabelAccuracy
+)
 
 from transformers import (
     ViTForImageClassification,
@@ -77,29 +82,36 @@ class CheXpertDataset(Dataset):
         if not(uncertainty_policy in uncertainty_policies):
             logger.error(f"Unknown uncertainty policy. Known policies: {uncertainty_policies}")
             return None
-        
-        project_id = 'labshurb'
-
-        storage_client = storage.Client(project=project_id)
-        self.bucket = storage_client.bucket('chexpert_database_stanford')
 
         split = 'train' if train  else 'valid'
         csv_path = f"CheXpert-v1.0/{split}.csv"
         path = str(data_path) + csv_path
 
+        self.in_cloud = False
+
         data = pd.DataFrame()
         try:
             data = pd.read_csv(path)
+            data['Path'] = data_path + data['Path']
+            logger.info("Local database found.")
         except Exception as e:
             try:
-              blob = self.bucket.get_blob(csv_path)
-              blob.download_to_filename('tmp.csv')
-              data = pd.read_csv('tmp.csv')
-            except:  
-              logger.error(f"Couldn't read csv at path {path}.\n{e}")
-              quit()
+              ### Find files at gcp
+                project_id = 'labshurb'
 
-        data['Path'] = data['Path'] # data_path + 
+                storage_client = storage.Client(project=project_id)
+                self.bucket = storage_client.bucket('chexpert_database_stanford')
+
+                blob = self.bucket.get_blob(csv_path)
+                blob.download_to_filename('tmp.csv')
+                data = pd.read_csv('tmp.csv')
+
+                self.in_cloud = True
+                logger.info("Cloud database found.")
+            except:  
+                logger.error(f"Couldn't read csv at path {path}./n{e}")
+                quit()
+
         data.set_index('Path', inplace=True)
 
         #data = data.loc[data['Frontal/Lateral'] == 'Frontal'].copy()
@@ -126,9 +138,7 @@ class CheXpertDataset(Dataset):
 
         # U-MultiClass
         elif uncertainty_policy == uncertainty_policies[4]:
-            # Do nothing and leave -1 as a label, but check if whole system works.
-            logger.error(f"Uncertainty policy {uncertainty_policy} not implemented.")
-            return None
+            data.replace({-1: 2}, inplace=True)
 
         self.image_names = data.index.to_numpy()
         self.labels = data.loc[:, pathologies].to_numpy()
@@ -148,8 +158,12 @@ class CheXpertDataset(Dataset):
             np.array: Array of grayscale image.
             torch.Tensor: Tensor of labels.
         """
-        img_bytes = self.bucket.blob(self.image_names[index]).download_as_bytes()#.download_to_filename('tmp.jpg')
-        img = Image.open(io.BytesIO(img_bytes)).convert('RGB')
+        if self.in_cloud:
+            img_bytes = self.bucket.blob(self.image_names[index]).download_as_bytes()#.download_to_filename('tmp.jpg')
+            img = Image.open(io.BytesIO(img_bytes)).convert('RGB')
+
+        else:
+            img = Image.open(self.image_names[index]).convert('RGB')
         img = self.transform(img)
 
         label = self.labels[index].astype(np.float32)
@@ -171,7 +185,7 @@ def get_args():
     parser.add_argument(
         "--sweep_config",
         type=str,
-        default='config.yaml',
+        default='src/config.yaml',
         help="Path to yaml file containing sweep config"
     )
     parser.add_argument(
@@ -184,40 +198,46 @@ def get_args():
         '--data_path',
         required=False,
         type=str,
-        default="gcs://chexpert_database_stanford/",
+        default=r"C:/Users/hurbl/OneDrive/Área de Trabalho/Loon Factory/repository/Chest-X-Ray-Pathology-Classifier/data/raw/",
+        #default="gcs://chexpert_database_stanford/",
         help='Local or storage path to csv metadata file'
     )
     parser.add_argument(
         '--uncertainty_policy',
         required=False,
         type=str,
-        default="U-Ones",
+        default="U-MultiClass",
         help='Uncertainty policy'
     )
     args = parser.parse_args()
     return args
 
 
-AUC = MultilabelAUROC(num_labels=5, average=None, thresholds=None)
-F1 = MultilabelF1Score(num_labels=5, average=None)
-PR_CURVE = MultilabelPrecisionRecallCurve(num_labels=5, thresholds=None)
+AUC = MultilabelAUROC(num_labels=5, average=None, thresholds=None).to('cuda')
+F1 = MultilabelF1Score(num_labels=5, average=None).to('cuda')
+PR_CURVE = MultilabelPrecisionRecallCurve(num_labels=5, thresholds=None).to('cuda')
+ACC = MultilabelAccuracy(num_labels=5, average=None).to('cuda')
 
 def compute_metrics(eval_pred):
     logits, labels = eval_pred
+    logits = torch.from_numpy(logits).to('cuda')
+    labels = torch.from_numpy(labels).to('cuda').long()
 
     auc = AUC(logits, labels)
-    precision, recall, _ = PR_CURVE(logits, labels)
+    #precision, recall, _ = PR_CURVE(logits, labels)
     f1 = F1(logits, labels)
+    acc = ACC(logits, labels)
 
     return {
-        'auc_roc': auc,
-        'precision': precision,
-        'recall': recall,
-        'f1': f1,
-        'auc_roc_mean': auc.mean(),
-        'precision_mean': precision.mean(),
-        'recall_mean': recall.mean(),
-        'f1_mean': f1.mean(),
+        #'auc_roc': auc,
+        #'precision': precision,
+        #'recall': recall,
+        #'f1': f1,
+        'auc_roc_mean': auc.cpu().mean(),
+        #'precision_mean': np.mean(precision),
+        #'recall_mean': np.mean(recall),
+        'f1_mean': f1.cpu().mean(),
+        'acc_mean': acc.cpu().mean()
     }
 
 
@@ -248,11 +268,11 @@ def main(args):
 
         training_args = TrainingArguments(
                 output_dir="./output",
-                report_to='wandb',  # Turn on Weights & Biases logginganother amazoaaaaaaaaaaaaaa
+                report_to='wandb',  # Turn on Weights & Biases logging
                 save_strategy='epoch',
                 evaluation_strategy="epoch",
                 logging_strategy='steps',
-                logging_steps=config.grad_acc,
+                logging_steps=1,
                 optim='adamw_torch',
                 num_train_epochs=config.epochs,
                 learning_rate=config.lr,
@@ -263,7 +283,7 @@ def main(args):
                 gradient_accumulation_steps=config.grad_acc,
                 weight_decay=0.1,
                 #gradient_checkpointing=True,
-                auto_find_batch_size=True,
+                auto_find_batch_size=False,
                 fp16=True,
                 dataloader_drop_last=True,
                 load_best_model_at_end=True,
@@ -300,4 +320,4 @@ if __name__ == "__main__":
         sweep_config = yaml.safe_load(f)
     sweep_id = wandb.sweep(sweep=sweep_config, project=project_name)
 
-    wandb.agent(sweep_id=sweep_id, function=(lambda: main(args=args)), count=50)
+    wandb.agent(sweep_id=sweep_id, function=(lambda: main(args=args)), count=1)
