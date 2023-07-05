@@ -49,7 +49,7 @@ pathologies = ['Atelectasis',
 uncertainty_policies = ['U-Ignore',
                         'U-Zeros',
                         'U-Ones',
-                        'U-SelfTrained',
+#                        'U-SelfTrained',
                         'U-MultiClass']
 
 ######################
@@ -62,7 +62,7 @@ class CheXpertDataset(Dataset):
                  logger: logging.Logger = logging.getLogger(__name__),
                  pathologies: List[str] = pathologies,
                  train: bool = True,
-                 resize_shape: tuple = (384, 384)) -> None:
+                 resize_shape: tuple = (256, 256)) -> None:
         """ Innitialize dataset and preprocess according to uncertainty policy.
 
         Args:
@@ -249,18 +249,18 @@ def main(args):
             data_path=args.data_path,
             uncertainty_policy=args.uncertainty_policy,
             train=True,
-            resize_shape=(224, 224))
+            resize_shape=(384, 384))
 
 
         val_dataset = CheXpertDataset(
             data_path=args.data_path,
             uncertainty_policy=args.uncertainty_policy,
             train=False,
-            resize_shape=(224, 224))
+            resize_shape=(384, 384))
 
         
         model = ViTForImageClassification.from_pretrained(
-            "google/vit-base-patch16-224", 
+            "google/vit-large-patch16-384", 
             problem_type="multi_label_classification",
             num_labels=5,
             ignore_mismatched_sizes=True
@@ -311,13 +311,16 @@ def main(args):
 
 
 if __name__ == "__main__":
-    project_name = "chexpert-vit"
-    os.environ["WANDB_PROJECT"] = project_name
-    os.environ["WANDB_LOG_MODEL"] = "true"
 
-    args = get_args()
-    with open(args.sweep_config) as f:
-        sweep_config = yaml.safe_load(f)
-    sweep_id = wandb.sweep(sweep=sweep_config, project=project_name)
+    for approach in uncertainty_policies:
+        project_name = "chexpert-vit"
+        os.environ["WANDB_PROJECT"] = project_name
+        os.environ["WANDB_LOG_MODEL"] = "true"
 
-    wandb.agent(sweep_id=sweep_id, function=(lambda: main(args=args)), count=1)
+        args = get_args()
+        args.uncertainty_policy = approach
+        with open(args.sweep_config) as f:
+            sweep_config = yaml.safe_load(f)
+        sweep_id = wandb.sweep(sweep=sweep_config, project=project_name)
+
+        wandb.agent(sweep_id=sweep_id, function=(lambda: main(args=args)), count=1)
