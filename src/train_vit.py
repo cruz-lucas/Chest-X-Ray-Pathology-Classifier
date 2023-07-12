@@ -258,16 +258,16 @@ def main(args):
             train=False,
             resize_shape=(384, 384))
 
-        
+        model_ckp = "google/vit-large-patch16-384"        
         model = ViTForImageClassification.from_pretrained(
-            "google/vit-large-patch16-384", 
+            model_ckp, 
             problem_type="multi_label_classification",
             num_labels=5,
             ignore_mismatched_sizes=True
         )
 
         training_args = TrainingArguments(
-                output_dir=f"./output/{args.uncertainty_policy}",
+                output_dir=f"./output/{model_ckp}/{args.uncertainty_policy}",
                 report_to='wandb',  # Turn on Weights & Biases logging
                 save_strategy='epoch',
                 evaluation_strategy="epoch",
