@@ -49,7 +49,7 @@ pathologies = ['Atelectasis',
 uncertainty_policies = ['U-Ignore',
                         'U-Zeros',
                         'U-Ones',
-#                        'U-SelfTrained',
+                        'U-SelfTrained',
                         'U-MultiClass']
 
 ######################
@@ -206,7 +206,7 @@ def get_args():
         '--uncertainty_policy',
         required=False,
         type=str,
-        default=uncertainty_policies[1],
+        default=uncertainty_policies[-1],
         help='Uncertainty policy'
     )
     args = parser.parse_args()
@@ -312,15 +312,13 @@ def main(args):
 
 if __name__ == "__main__":
 
-    for approach in uncertainty_policies:
-        project_name = "chexpert-vit"
-        os.environ["WANDB_PROJECT"] = project_name
-        os.environ["WANDB_LOG_MODEL"] = "true"
+    project_name = "chexpert-vit"
+    os.environ["WANDB_PROJECT"] = project_name
+    os.environ["WANDB_LOG_MODEL"] = "true"
 
-        args = get_args()
-        args.uncertainty_policy = approach
-        with open(args.sweep_config) as f:
-            sweep_config = yaml.safe_load(f)
-        sweep_id = wandb.sweep(sweep=sweep_config, project=project_name)
+    args = get_args()
+    with open(args.sweep_config) as f:
+        sweep_config = yaml.safe_load(f)
+    sweep_id = wandb.sweep(sweep=sweep_config, project=project_name)
 
-        wandb.agent(sweep_id=sweep_id, function=(lambda: main(args=args)), count=1)
+    wandb.agent(sweep_id=sweep_id, function=(lambda: main(args=args)), count=1)
