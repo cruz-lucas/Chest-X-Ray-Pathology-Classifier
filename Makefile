@@ -79,7 +79,8 @@ create_environment:
 
 ## train local
 train:
-	$(PYTHON_INTERPRETER) src/train_model.py --input_filepath "gcs://chexpert_database_stanford/"
+	$(PYTHON_INTERPRETER) src/train.py 	
+# --input_filepath "gcs://chexpert_database_stanford/"
 
 
 #################################################################################
