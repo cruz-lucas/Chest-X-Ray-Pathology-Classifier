@@ -7,7 +7,6 @@ import torch
 from torchmetrics.classification import (
     MultilabelAUROC,
     MultilabelF1Score,
-    MultilabelPrecisionRecallCurve,
     MultilabelAccuracy
 )
 
@@ -36,6 +35,7 @@ uncertainty_policies = ['U-Ignore',
                         'U-Ones',
                         'U-SelfTrained',
                         'U-MultiClass']
+
 
 def get_args():
     '''Parses args.'''
@@ -86,7 +86,7 @@ def get_args():
         required=False,
         type=str,
         default=r"C:/Users/hurbl/OneDrive/Área de Trabalho/Loon Factory/repository/Chest-X-Ray-Pathology-Classifier/data/raw/",
-        #default="gcs://chexpert_database_stanford/",
+        # default="gcs://chexpert_database_stanford/",
         help='Local or storage path to csv metadata file' 
     )
     parser.add_argument(
@@ -102,7 +102,7 @@ def get_args():
         '-r',
         required=False,
         type=tuple,
-        default=(224,224),
+        default=(224, 224),
         help='Resize dimensions'
     )
     parser.add_argument(
@@ -120,6 +120,7 @@ def get_args():
 AUC = MultilabelAUROC(num_labels=5, average='macro', thresholds=None).to('cuda')
 F1 = MultilabelF1Score(num_labels=5, average='macro').to('cuda')
 ACC = MultilabelAccuracy(num_labels=5, average='macro').to('cuda')
+
 
 def compute_metrics(eval_pred):
     logits, labels = eval_pred
@@ -156,7 +157,7 @@ def main(args):
             uncertainty_policy=config['uncertainty_policy'],
             train=False,
             resize_shape=config['resize'])
-       
+
         model = ViTForImageClassification.from_pretrained(
             config['checkpoint'], 
             problem_type="multi_label_classification",
@@ -180,7 +181,7 @@ def main(args):
                 per_device_train_batch_size=config['batch_size'],
                 gradient_accumulation_steps=config['gradient_accumulation'],
                 weight_decay=0.1,
-                #gradient_checkpointing=True,
+                # gradient_checkpointing=True,
                 auto_find_batch_size=False,
                 fp16=True,
                 dataloader_drop_last=True,
@@ -205,7 +206,7 @@ def main(args):
                 )
 
         train_results = trainer.train()
-        #trainer.save_model(f'{config["job_dir"]}/{config["uncertainty_policy"]}/model_output')
+        # trainer.save_model(f'{config["job_dir"]}/{config["uncertainty_policy"]}/model_output')
 
         trainer.log_metrics("train", train_results.metrics)
         trainer.save_metrics("train", train_results.metrics)
