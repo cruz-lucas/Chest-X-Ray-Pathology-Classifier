@@ -79,7 +79,11 @@ create_environment:
 
 ## train local
 train:
-	$(PYTHON_INTERPRETER) src/train.py 	
+	$(PYTHON_INTERPRETER) src/train.py \
+	--epochs 5 \
+	--uncertainty_policy 'U-Ignore'
+
+
 # --input_filepath "gcs://chexpert_database_stanford/"
 
 

@@ -166,12 +166,13 @@ def main(args):
         )
 
         training_args = TrainingArguments(
-                output_dir=f"./output/{config['checkpoint']}/{config['uncertainty_policy']}",
+                output_dir=f"./output/25092023/{config['checkpoint']}/{config['uncertainty_policy']}",
                 report_to='wandb',  # Turn on Weights & Biases logging
-                save_strategy='epoch',
+                save_strategy='steps',
+                save_steps=0.05,
                 evaluation_strategy="epoch",
-                logging_strategy='steps',
-                logging_steps=1,
+                logging_strategy='epoch',
+                #logging_steps=1,
                 optim='adamw_torch',
                 num_train_epochs=config['epochs'],
                 learning_rate=config['learning_rate'],
@@ -185,7 +186,11 @@ def main(args):
                 auto_find_batch_size=False,
                 fp16=True,
                 dataloader_drop_last=True,
-                load_best_model_at_end=True,
+                #load_best_model_at_end=True,
+                push_to_hub=True,
+                hub_strategy='checkpoint',
+                hub_private_repo=False,
+                hub_model_id=f"lucascruz/CheXpert-ViT-{config['uncertainty_policy']}",
             )
 
         if config['uncertainty_policy'] == 'U-Ignore':
