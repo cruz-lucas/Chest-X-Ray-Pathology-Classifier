@@ -107,3 +107,4 @@ target/
 */output/*
 
 notebooks/*.pqt
+*.pqt
