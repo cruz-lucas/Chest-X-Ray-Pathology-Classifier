@@ -11,7 +11,7 @@ from torchmetrics.classification import (
 )
 
 from chexpert import CheXpertDataset
-from custom_trainer import MaskedLossTrainer
+from custom_trainer import MaskedLossTrainer, MultiOutputTrainer
 
 from transformers import (
     ViTForImageClassification,
@@ -25,9 +25,7 @@ import logging
 log_fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 logging.basicConfig(level=logging.INFO, format=log_fmt)
 
-torch.cuda.empty_cache()
 gc.collect()
-
 
 # Uncertainty policies on original paper
 uncertainty_policies = ['U-Ignore',
@@ -35,6 +33,12 @@ uncertainty_policies = ['U-Ignore',
                         'U-Ones',
                         'U-SelfTrained',
                         'U-MultiClass']
+
+
+device = 'cpu'
+if torch.cuda.is_available():
+    torch.cuda.empty_cache()
+    device = 'cuda'
 
 
 def get_args():
@@ -117,15 +121,15 @@ def get_args():
     return args
 
 
-AUC = MultilabelAUROC(num_labels=5, average='macro', thresholds=None).to('cuda')
-F1 = MultilabelF1Score(num_labels=5, average='macro').to('cuda')
-ACC = MultilabelAccuracy(num_labels=5, average='macro').to('cuda')
+AUC = MultilabelAUROC(num_labels=5, average='macro', thresholds=None).to(device)
+F1 = MultilabelF1Score(num_labels=5, average='macro').to(device)
+ACC = MultilabelAccuracy(num_labels=5, average='macro').to(device)
 
 
 def compute_metrics(eval_pred):
     logits, labels = eval_pred
-    logits = torch.from_numpy(logits).to('cuda')
-    labels = torch.from_numpy(labels).to('cuda').long()
+    logits = torch.from_numpy(logits).to(device)
+    labels = torch.from_numpy(labels).to(device).long()
 
     auc = AUC(logits, labels)
     f1 = F1(logits, labels)
@@ -163,7 +167,7 @@ def main(args):
             problem_type="multi_label_classification",
             num_labels=5,
             ignore_mismatched_sizes=True
-        )
+        ).to(device)
 
         training_args = TrainingArguments(
                 output_dir=f"./output/25092023/{config['checkpoint']}/{config['uncertainty_policy']}",
@@ -171,8 +175,8 @@ def main(args):
                 save_strategy='steps',
                 save_steps=0.05,
                 evaluation_strategy="epoch",
-                logging_strategy='epoch',
-                #logging_steps=1,
+                logging_strategy='steps',
+                logging_steps=1,
                 optim='adamw_torch',
                 num_train_epochs=config['epochs'],
                 learning_rate=config['learning_rate'],
@@ -184,7 +188,7 @@ def main(args):
                 weight_decay=0.1,
                 # gradient_checkpointing=True,
                 auto_find_batch_size=False,
-                fp16=True,
+                #fp16=True,
                 dataloader_drop_last=True,
                 #load_best_model_at_end=True,
                 push_to_hub=True,
@@ -195,6 +199,14 @@ def main(args):
 
         if config['uncertainty_policy'] == 'U-Ignore':
             trainer = MaskedLossTrainer(
+                model=model,
+                args=training_args,
+                train_dataset=train_dataset,
+                eval_dataset=val_dataset,
+                compute_metrics=compute_metrics,
+                )
+        elif config['uncertainty_policy'] == 'U-MultiClass':
+            trainer = MultiOutputTrainer(
                 model=model,
                 args=training_args,
                 train_dataset=train_dataset,
