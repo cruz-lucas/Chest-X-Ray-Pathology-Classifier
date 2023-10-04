@@ -162,10 +162,12 @@ def main(args):
             train=False,
             resize_shape=config['resize'])
 
+        num_labels = 15 if config['uncertainty_policy'] == 'U-MultiClass' else 5
+
         model = ViTForImageClassification.from_pretrained(
             config['checkpoint'], 
             problem_type="multi_label_classification",
-            num_labels=5,
+            num_labels=num_labels,
             ignore_mismatched_sizes=True
         ).to(device)
 

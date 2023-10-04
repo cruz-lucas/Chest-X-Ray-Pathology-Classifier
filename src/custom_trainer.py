@@ -27,5 +27,16 @@ class MultiOutputTrainer(Trainer):
         logits = outputs.get("logits")
 
         loss_fct = nn.CrossEntropyLoss().to(model.device)
-        loss = loss_fct(logits.view(-1), labels.view(-1))
+        
+        #print(logits[:, 0:3], '\n', labels[:, 0])
+
+        loss_1 = loss_fct(logits[:, 0:3], labels[:, 0].long())
+        loss_2 = loss_fct(logits[:, 3:6], labels[:, 1].long())
+        loss_3 = loss_fct(logits[:, 6:9], labels[:, 2].long())
+        loss_4 = loss_fct(logits[:, 9:12], labels[:, 3].long())
+        loss_5 = loss_fct(logits[:, 12:], labels[:, 4].long())
+
+        loss = (
+            loss_1 + loss_2 + loss_3 + loss_4 + loss_5
+        )/5.0
         return (loss, outputs) if return_outputs else loss
