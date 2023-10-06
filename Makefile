@@ -81,7 +81,7 @@ create_environment:
 train:
 	$(PYTHON_INTERPRETER) src/train.py \
 	--epochs 5 \
-	--uncertainty_policy 'U-Ignore'
+	--uncertainty_policy 'U-MultiClass'
 
 
 # --input_filepath "gcs://chexpert_database_stanford/"

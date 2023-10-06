@@ -128,7 +128,13 @@ class CheXpertDataset(Dataset):
 
         # U-MultiClass
         elif uncertainty_policy == uncertainty_policies[4]:
-            data.replace({-1: 2}, inplace=True)
+            #data.replace({-1: 2}, inplace=True)
+
+            one_hot_0 = np.array([1., 0., 0.], dtype=np.float16)
+            one_hot_1 = np.array([0., 1., 0.], dtype=np.float16)
+            one_hot_2 = np.array([0., 0., 1.], dtype=np.float16)
+
+            data.loc[:, pathologies] = data.map(lambda x: one_hot_0 if x == 0 else one_hot_1 if x == 1 else one_hot_2).to_numpy()
 
         self.image_names = data.index.to_numpy()
         self.labels = data.loc[:, pathologies].to_numpy()
@@ -137,6 +143,7 @@ class CheXpertDataset(Dataset):
                   T.ToTensor(),
                   T.Normalize(mean=[0.5330], std=[0.0349])
               ])  # whiten with dataset mean and stdif transform)
+
 
     def __getitem__(self, index: int) -> Union[np.array, Tensor]:
         """ Returns image and label from given index.
@@ -158,7 +165,11 @@ class CheXpertDataset(Dataset):
             img = Image.open(self.image_names[index]).convert('RGB')
         img = self.transform(img)
 
-        label = self.labels[index].astype(np.float32)
+        label = (
+            self.labels[index].astype(np.float16)
+            if len(self.labels[index]) == 1
+            else np.vstack(self.labels[index]).astype(np.float16)
+            )
         return {"pixel_values": img, "labels": label}
 
     def __len__(self) -> int:

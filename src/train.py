@@ -190,7 +190,7 @@ def main(args):
                 weight_decay=0.1,
                 # gradient_checkpointing=True,
                 auto_find_batch_size=False,
-                #fp16=True,
+                fp16=True,
                 dataloader_drop_last=True,
                 #load_best_model_at_end=True,
                 push_to_hub=True,
