@@ -7,11 +7,14 @@ import torch
 from torchmetrics.classification import (
     MultilabelAUROC,
     MultilabelF1Score,
-    MultilabelAccuracy
+    MultilabelAccuracy,
+    MulticlassAUROC,
+    MulticlassF1Score,
+    MulticlassAccuracy
 )
 
-from chexpert import CheXpertDataset
-from custom_trainer import MaskedLossTrainer, MultiOutputTrainer
+#from chexpert import CheXpertDataset
+#from custom_trainer import MaskedLossTrainer, MultiOutputTrainer
 
 from transformers import (
     ViTForImageClassification,
@@ -98,7 +101,7 @@ def get_args():
         '-u',
         required=False,
         type=str,
-        default=uncertainty_policies[0],
+        default=uncertainty_policies[-1],
         help='Uncertainty policy'
     )
     parser.add_argument(
@@ -125,15 +128,51 @@ AUC = MultilabelAUROC(num_labels=5, average='macro', thresholds=None).to(device)
 F1 = MultilabelF1Score(num_labels=5, average='macro').to(device)
 ACC = MultilabelAccuracy(num_labels=5, average='macro').to(device)
 
+multiclassAUC = MulticlassAUROC(num_classes=3, average='macro', thresholds=None).to(device)
+multiclassF1 = MulticlassF1Score(num_classes=3, average='macro').to(device)
+multiclassACC = MulticlassAccuracy(num_classes=3, average='macro').to(device)
 
 def compute_metrics(eval_pred):
     logits, labels = eval_pred
     logits = torch.from_numpy(logits).to(device)
     labels = torch.from_numpy(labels).to(device).long()
 
-    auc = AUC(logits, labels)
-    f1 = F1(logits, labels)
-    acc = ACC(logits, labels)
+    if labels.shape[1] == 15:
+        label_1 = torch.argmax(labels[:, 0:3], dim=1).int()
+        label_2 = torch.argmax(labels[:, 3:6], dim=1).int()
+        label_3 = torch.argmax(labels[:, 6:9], dim=1).int()
+        label_4 = torch.argmax(labels[:, 9:12], dim=1).int()
+        label_5 = torch.argmax(labels[:, 12:], dim=1).int()
+
+
+        auc = (
+            multiclassAUC(logits[:, 0:3], label_1) +
+            multiclassAUC(logits[:, 3:6], label_2) +
+            multiclassAUC(logits[:, 6:9], label_3) +
+            multiclassAUC(logits[:, 9:12], label_4) +
+            multiclassAUC(logits[:, 12:], label_5)
+        )/5.
+
+        f1 = (
+            multiclassF1(logits[:, 0:3], label_1) +
+            multiclassF1(logits[:, 3:6], label_2) +
+            multiclassF1(logits[:, 6:9], label_3) +
+            multiclassF1(logits[:, 9:12], label_4) +
+            multiclassF1(logits[:, 12:], label_5)
+        )/5.
+
+        acc = (
+            multiclassACC(logits[:, 0:3], label_1) +
+            multiclassACC(logits[:, 3:6], label_2) +
+            multiclassACC(logits[:, 6:9], label_3) +
+            multiclassACC(logits[:, 9:12], label_4) +
+            multiclassACC(logits[:, 12:], label_5)
+        )/5.
+
+    else:
+        auc = AUC(logits, labels)
+        f1 = F1(logits, labels)
+        acc = ACC(logits, labels)
 
     return {
         'auc_roc_mean': auc.cpu().mean(),

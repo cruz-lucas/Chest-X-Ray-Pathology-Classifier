@@ -130,14 +130,16 @@ class CheXpertDataset(Dataset):
         elif uncertainty_policy == uncertainty_policies[4]:
             #data.replace({-1: 2}, inplace=True)
 
-            one_hot_0 = np.array([1., 0., 0.], dtype=np.float16)
-            one_hot_1 = np.array([0., 1., 0.], dtype=np.float16)
-            one_hot_2 = np.array([0., 0., 1.], dtype=np.float16)
+            one_hot_0 = [1., 0., 0.]
+            one_hot_1 = [0., 1., 0.]
+            one_hot_2 = [0., 0., 1.]
 
             data.loc[:, pathologies] = data.map(lambda x: one_hot_0 if x == 0 else one_hot_1 if x == 1 else one_hot_2).to_numpy()
 
         self.image_names = data.index.to_numpy()
-        self.labels = data.loc[:, pathologies].to_numpy()
+        self.labels = np.array(
+            data.loc[:, pathologies].values.tolist()
+            ).reshape((-1, 15))
         self.transform = T.Compose([
                   T.Resize(resize_shape),
                   T.ToTensor(),
@@ -165,11 +167,7 @@ class CheXpertDataset(Dataset):
             img = Image.open(self.image_names[index]).convert('RGB')
         img = self.transform(img)
 
-        label = (
-            self.labels[index].astype(np.float16)
-            if len(self.labels[index]) == 1
-            else np.vstack(self.labels[index]).astype(np.float16)
-            )
+        label = self.labels[index].astype(np.float32)
         return {"pixel_values": img, "labels": label}
 
     def __len__(self) -> int:
