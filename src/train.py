@@ -13,8 +13,8 @@ from torchmetrics.classification import (
     MulticlassAccuracy
 )
 
-#from chexpert import CheXpertDataset
-#from custom_trainer import MaskedLossTrainer, MultiOutputTrainer
+from chexpert import CheXpertDataset
+from custom_trainer import MaskedLossTrainer, MultiOutputTrainer
 
 from transformers import (
     ViTForImageClassification,

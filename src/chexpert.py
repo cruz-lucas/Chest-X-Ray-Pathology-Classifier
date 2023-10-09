@@ -103,6 +103,9 @@ class CheXpertDataset(Dataset):
         # data = data.loc[data['Frontal/Lateral'] == 'Frontal'].copy()
         data = data.loc[:, pathologies].copy()
 
+        # it will change for 15 in case of multiclass
+        label_cols = 5
+
         data.fillna(0, inplace=True)
 
         # U-Ignore
@@ -136,10 +139,12 @@ class CheXpertDataset(Dataset):
 
             data.loc[:, pathologies] = data.map(lambda x: one_hot_0 if x == 0 else one_hot_1 if x == 1 else one_hot_2).to_numpy()
 
+            label_cols = 15
+
         self.image_names = data.index.to_numpy()
         self.labels = np.array(
             data.loc[:, pathologies].values.tolist()
-            ).reshape((-1, 15))
+            ).reshape((-1, label_cols))
         self.transform = T.Compose([
                   T.Resize(resize_shape),
                   T.ToTensor(),

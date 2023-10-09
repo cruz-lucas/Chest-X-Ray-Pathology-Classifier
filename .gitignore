@@ -110,3 +110,4 @@ notebooks/*.pqt
 *.pqt
 *.bin
 notebooks/artifacts/model-ma5hmbiw-v0/config.json
+*.csv
