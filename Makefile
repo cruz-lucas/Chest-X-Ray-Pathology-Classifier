@@ -81,7 +81,8 @@ create_environment:
 train:
 	$(PYTHON_INTERPRETER) src/train.py \
 	--epochs 5 \
-	--uncertainty_policy 'U-MultiClass'
+	--uncertainty_policy 'U-SelfTrained' \
+	--name 'train_wo_uncertainty'
 
 
 # --input_filepath "gcs://chexpert_database_stanford/"

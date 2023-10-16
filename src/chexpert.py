@@ -38,6 +38,7 @@ class CheXpertDataset(Dataset):
                  logger: logging.Logger = logging.getLogger(__name__),
                  pathologies: List[str] = pathologies,
                  train: bool = True,
+                 csv_name: str = None,
                  resize_shape: tuple = (256, 256)) -> None:
         """ Innitialize dataset and preprocess according to uncertainty policy.
 
@@ -66,7 +67,7 @@ class CheXpertDataset(Dataset):
                 f"{uncertainty_policies}")
             return None
 
-        split = 'train' if train else 'valid'
+        split = csv_name if csv_name is not None else 'train' if train else 'valid'
         csv_path = f"CheXpert-v1.0/{split}.csv"
         path = str(data_path) + csv_path
 
@@ -76,7 +77,7 @@ class CheXpertDataset(Dataset):
         try:
             data = pd.read_csv(path)
             data['Path'] = data_path + data['Path']
-            logger.info("Local database found.")
+            logger.info(f"Local database found at {path}")
         except Exception as e:
             logger.warning(f"Couldn't read csv at path {path}./n{e}")
             try:
@@ -124,10 +125,8 @@ class CheXpertDataset(Dataset):
 
         # U-SelfTrained
         elif uncertainty_policy == uncertainty_policies[3]:
-            logger.warning(
-                f"Using {uncertainty_policy} uncertainty policy, " +
-                "make sure there are no uncertainty labels in the dataset.")
-            return None
+            # No action needed
+            pass
 
         # U-MultiClass
         elif uncertainty_policy == uncertainty_policies[4]:

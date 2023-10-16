@@ -92,7 +92,7 @@ def get_args():
         '-d',
         required=False,
         type=str,
-        default=r"C:/Users/hurbl/OneDrive/Área de Trabalho/Loon Factory/repository/Chest-X-Ray-Pathology-Classifier/data/raw/",
+        default=r"E:/",
         # default="gcs://chexpert_database_stanford/",
         help='Local or storage path to csv metadata file' 
     )
@@ -119,6 +119,14 @@ def get_args():
         type=str,
         default='google/vit-base-patch16-224',
         help='checkpoint to load from hugging face hub'
+    )
+    parser.add_argument(
+        '--name',
+        '-n',
+        required=False,
+        type=str,
+        default=None,
+        help='Name of the csv file containing metadata'
     )
     args = parser.parse_args()
     return args
@@ -193,6 +201,7 @@ def main(args):
             data_path=config['data_path'],
             uncertainty_policy=config['uncertainty_policy'],
             train=True,
+            csv_name=config['name'],
             resize_shape=config['resize'])
 
         val_dataset = CheXpertDataset(
