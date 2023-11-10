@@ -92,8 +92,9 @@ def get_args():
         '-d',
         required=False,
         type=str,
-        default=r"E:/",
-        # default="gcs://chexpert_database_stanford/",
+        default="C:/Users/hurbl/OneDrive/Área de Trabalho/Loon Factory/repository/Chest-X-Ray-Pathology-Classifier/data/raw/",
+        # r"E:/",
+        # "gcs://chexpert_database_stanford/",
         help='Local or storage path to csv metadata file' 
     )
     parser.add_argument(

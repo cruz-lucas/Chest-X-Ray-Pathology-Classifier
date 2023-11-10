@@ -76,7 +76,10 @@ class CheXpertDataset(Dataset):
         data = pd.DataFrame()
         try:
             data = pd.read_csv(path)
-            data['Path'] = data_path + data['Path']
+            if csv_name == 'test_labels':
+                data['Path'] = data_path + 'CheXpert-v1.0/' + data['Path']
+            else:
+                data['Path'] = data_path + data['Path']
             logger.info(f"Local database found at {path}")
         except Exception as e:
             logger.warning(f"Couldn't read csv at path {path}./n{e}")
