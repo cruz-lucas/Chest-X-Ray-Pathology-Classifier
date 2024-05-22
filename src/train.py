@@ -1,295 +1,151 @@
-import gc
-import os
-import argparse
+"""Train script for CheXpert with Vision Transformer."""
 from datetime import datetime
 
-import torch
-from torchmetrics.classification import (
-    MultilabelAUROC,
-    MultilabelF1Score,
-    MultilabelAccuracy,
-    MulticlassAUROC,
-    MulticlassF1Score,
-    MulticlassAccuracy
+from transformers import (
+    ViTForImageClassification, TrainingArguments, Trainer
 )
+import wandb
 
 from chexpert import CheXpertDataset
 from custom_trainer import MaskedLossTrainer, MultiOutputTrainer
 
-from transformers import (
-    ViTForImageClassification,
-    TrainingArguments,
-    Trainer
+import torch
+from torchmetrics.classification import (
+    MultilabelAUROC, MultilabelF1Score, MultilabelAccuracy,
+    MulticlassAUROC, MulticlassF1Score, MulticlassAccuracy
 )
 
-import wandb
-
 import logging
-log_fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-logging.basicConfig(level=logging.INFO, format=log_fmt)
+import gc
 
+# Set device to GPU if available
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+if device == 'cuda':
+    torch.cuda.empty_cache()
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# Ensure garbage collection
 gc.collect()
 
-# Uncertainty policies on original paper
-uncertainty_policies = ['U-Ignore',
-                        'U-Zeros',
-                        'U-Ones',
-                        'U-SelfTrained',
-                        'U-MultiClass']
-
-
-device = 'cpu'
-if torch.cuda.is_available():
-    torch.cuda.empty_cache()
-    device = 'cuda'
-
-
-def get_args():
-    '''Parses args.'''
-
-    parser = argparse.ArgumentParser("train_vit.py")
-    parser.add_argument(
-        "--epochs",
-        "-e",
-        required=False,
-        type=int,
-        default=5,
-        help="Epochs of training"
-    )
-    parser.add_argument(
-        "--learning_rate",
-        "-l",
-        required=False,
-        type=float,
-        default=4e-4,
-        help="learning rate of training"
-    )
-    parser.add_argument(
-        "--gradient_accumulation",
-        "-g",
-        required=False,
-        type=int,
-        default=64,
-        help="Gradient accumulation steps"
-    )
-    parser.add_argument(
-        "--batch_size",
-        "-b",
-        required=False,
-        type=int,
-        default=4,
-        help="Batch size"
-    )
-    parser.add_argument(
-        '--job_dir',
-        '-j',
-        required=False,
-        type=str,
-        default='.',
-        help='Bucket to store saved model, include gs://')
-    parser.add_argument(
-        '--data_path',
-        '-d',
-        required=False,
-        type=str,
-        default="C:/Users/hurbl/OneDrive/Área de Trabalho/Loon Factory/repository/Chest-X-Ray-Pathology-Classifier/data/raw/",
-        # r"E:/",
-        # "gcs://chexpert_database_stanford/",
-        help='Local or storage path to csv metadata file' 
-    )
-    parser.add_argument(
-        '--uncertainty_policy',
-        '-u',
-        required=False,
-        type=str,
-        default=uncertainty_policies[-1],
-        help='Uncertainty policy'
-    )
-    parser.add_argument(
-        '--resize',
-        '-r',
-        required=False,
-        type=tuple,
-        default=(224, 224),
-        help='Resize dimensions'
-    )
-    parser.add_argument(
-        '--checkpoint',
-        '-c',
-        required=False,
-        type=str,
-        default='google/vit-base-patch16-224',
-        help='checkpoint to load from hugging face hub'
-    )
-    parser.add_argument(
-        '--name',
-        '-n',
-        required=False,
-        type=str,
-        default=None,
-        help='Name of the csv file containing metadata'
-    )
-    args = parser.parse_args()
-    return args
-
-
-AUC = MultilabelAUROC(num_labels=5, average='macro', thresholds=None).to(device)
+# Metrics
+AUC = MultilabelAUROC(num_labels=5, average='macro').to(device)
 F1 = MultilabelF1Score(num_labels=5, average='macro').to(device)
 ACC = MultilabelAccuracy(num_labels=5, average='macro').to(device)
-
-multiclassAUC = MulticlassAUROC(num_classes=3, average='macro', thresholds=None).to(device)
+multiclassAUC = MulticlassAUROC(num_classes=3, average='macro').to(device)
 multiclassF1 = MulticlassF1Score(num_classes=3, average='macro').to(device)
 multiclassACC = MulticlassAccuracy(num_classes=3, average='macro').to(device)
 
+
 def compute_metrics(eval_pred):
+    """Compute metrics for evaluation."""
     logits, labels = eval_pred
     logits = torch.from_numpy(logits).to(device)
     labels = torch.from_numpy(labels).to(device).long()
 
     if labels.shape[1] == 15:
-        label_1 = torch.argmax(labels[:, 0:3], dim=1).int()
-        label_2 = torch.argmax(labels[:, 3:6], dim=1).int()
-        label_3 = torch.argmax(labels[:, 6:9], dim=1).int()
-        label_4 = torch.argmax(labels[:, 9:12], dim=1).int()
-        label_5 = torch.argmax(labels[:, 12:], dim=1).int()
-
-
-        auc = (
-            multiclassAUC(logits[:, 0:3], label_1) +
-            multiclassAUC(logits[:, 3:6], label_2) +
-            multiclassAUC(logits[:, 6:9], label_3) +
-            multiclassAUC(logits[:, 9:12], label_4) +
-            multiclassAUC(logits[:, 12:], label_5)
-        )/5.
-
-        f1 = (
-            multiclassF1(logits[:, 0:3], label_1) +
-            multiclassF1(logits[:, 3:6], label_2) +
-            multiclassF1(logits[:, 6:9], label_3) +
-            multiclassF1(logits[:, 9:12], label_4) +
-            multiclassF1(logits[:, 12:], label_5)
-        )/5.
-
-        acc = (
-            multiclassACC(logits[:, 0:3], label_1) +
-            multiclassACC(logits[:, 3:6], label_2) +
-            multiclassACC(logits[:, 6:9], label_3) +
-            multiclassACC(logits[:, 9:12], label_4) +
-            multiclassACC(logits[:, 12:], label_5)
-        )/5.
-
+        auc, f1, acc = 0, 0, 0
+        for i in range(0, 15, 3):
+            label = torch.argmax(labels[:, i:i+3], dim=1).int()
+            auc += multiclassAUC(logits[:, i:i+3], label)
+            f1 += multiclassF1(logits[:, i:i+3], label)
+            acc += multiclassACC(logits[:, i:i+3], label)
+        auc, f1, acc = auc / 5, f1 / 5, acc / 5
     else:
-        auc = AUC(logits, labels)
-        f1 = F1(logits, labels)
-        acc = ACC(logits, labels)
+        auc, f1, acc = AUC(logits, labels), F1(logits, labels), ACC(logits, labels)
 
     return {
-        'auc_roc_mean': auc.cpu().mean(),
-        'f1_mean': f1.cpu().mean(),
-        'acc_mean': acc.cpu()
+        'auc_roc_mean': auc.cpu().mean().item(),
+        'f1_mean': f1.cpu().mean().item(),
+        'acc_mean': acc.cpu().mean().item()
     }
 
 
-def main(args):
-    with wandb.init(project="chexpert-vit", job_type="train", config=args,
-                    name=str(args.uncertainty_policy)+str(datetime.now().strftime("%d%m%Y_%H%M%S")),
-                    tags=[
-                        args.uncertainty_policy,
-                        args.checkpoint]) as run:
-        config = run.config
+def main():
+    """Main function to run the training script."""
+    config = get_config()
 
+    with wandb.init(
+        project=config['wandb']['project'],
+        job_type=config['wandb']['job_type'],
+        config=config,
+        name=f"{config['trainer']['uncertainty_policy']}_{datetime.now().strftime('%d%m%Y_%H%M%S')}",
+        tags=[config['trainer']['uncertainty_policy'], config['trainer']['checkpoint']]
+    ):
         train_dataset = CheXpertDataset(
-            data_path=config['data_path'],
-            uncertainty_policy=config['uncertainty_policy'],
+            data_path=config.preprocess.data_path,
+            uncertainty_policy=config.trainer.uncertainty_policy,
             train=True,
-            csv_name=config['name'],
-            resize_shape=config['resize'])
+            csv_name=config.split,
+            resize_shape=config.trainer.resize
+        )
 
         val_dataset = CheXpertDataset(
-            data_path=config['data_path'],
-            uncertainty_policy=config['uncertainty_policy'],
+            data_path=config.preprocess.data_path,
+            uncertainty_policy=config.trainer.uncertainty_policy,
             train=False,
-            resize_shape=config['resize'])
+            resize_shape=config.trainer.resize
+        )
 
-        num_labels = 15 if config['uncertainty_policy'] == 'U-MultiClass' else 5
+        num_labels = 15 if config.trainer.uncertainty_policy == 'U-MultiClass' else 5
 
         model = ViTForImageClassification.from_pretrained(
-            config['checkpoint'], 
+            config.trainer.checkpoint,
             problem_type="multi_label_classification",
             num_labels=num_labels,
             ignore_mismatched_sizes=True
         ).to(device)
 
         training_args = TrainingArguments(
-                output_dir=f"./output/25092023/{config['checkpoint']}/{config['uncertainty_policy']}",
-                report_to='wandb',  # Turn on Weights & Biases logging
-                save_strategy='steps',
-                save_steps=0.05,
-                evaluation_strategy="epoch",
-                logging_strategy='steps',
-                logging_steps=1,
-                optim='adamw_torch',
-                num_train_epochs=config['epochs'],
-                learning_rate=config['learning_rate'],
-                lr_scheduler_type='linear',
-                warmup_steps=1_000,
-                max_grad_norm=1.0,
-                per_device_train_batch_size=config['batch_size'],
-                gradient_accumulation_steps=config['gradient_accumulation'],
-                weight_decay=0.1,
-                # gradient_checkpointing=True,
-                auto_find_batch_size=False,
-                fp16=True,
-                dataloader_drop_last=True,
-                #load_best_model_at_end=True,
-                push_to_hub=True,
-                hub_strategy='checkpoint',
-                hub_private_repo=False,
-                hub_model_id=f"lucascruz/CheXpert-ViT-{config['uncertainty_policy']}",
-            )
+            output_dir=f"./output/{datetime.now().strftime('%Y%m%d')}/{config.trainer.checkpoint}/{config.trainer.uncertainty_policy}",
+            report_to='wandb',
+            save_strategy='steps',
+            save_steps=0.05,
+            evaluation_strategy="epoch",
+            logging_strategy='steps',
+            logging_steps=1,
+            optim='adamw_torch',
+            num_train_epochs=config.trainer.epochs,
+            learning_rate=config.trainer.learning_rate,
+            lr_scheduler_type='linear',
+            warmup_steps=1000,
+            max_grad_norm=1.0,
+            per_device_train_batch_size=config.trainer.batch_size,
+            gradient_accumulation_steps=config.trainer.gradient_accumulation,
+            weight_decay=0.1,
+            fp16=True,
+            dataloader_drop_last=True,
+            push_to_hub=True,
+            hub_strategy='checkpoint',
+            hub_private_repo=False,
+            hub_model_id=f"{config.checkpoint}-CheXpert-{config.trainer.uncertainty_policy}"
+        )
 
-        if config['uncertainty_policy'] == 'U-Ignore':
-            trainer = MaskedLossTrainer(
-                model=model,
-                args=training_args,
-                train_dataset=train_dataset,
-                eval_dataset=val_dataset,
-                compute_metrics=compute_metrics,
-                )
-        elif config['uncertainty_policy'] == 'U-MultiClass':
-            trainer = MultiOutputTrainer(
-                model=model,
-                args=training_args,
-                train_dataset=train_dataset,
-                eval_dataset=val_dataset,
-                compute_metrics=compute_metrics,
-                )
-        else:
-            trainer = Trainer(
-                    model=model,
-                    args=training_args,
-                    train_dataset=train_dataset,
-                    eval_dataset=val_dataset,
-                    compute_metrics=compute_metrics,
-                )
+        trainer_cls = {
+            'U-Ignore': MaskedLossTrainer,
+            'U-MultiClass': MultiOutputTrainer
+        }.get(config.trainer.uncertainty_policy, Trainer)
+
+        trainer = trainer_cls(
+            model=model,
+            args=training_args,
+            train_dataset=train_dataset,
+            eval_dataset=val_dataset,
+            compute_metrics=compute_metrics
+        )
 
         train_results = trainer.train()
-        # trainer.save_model(f'{config["job_dir"]}/{config["uncertainty_policy"]}/model_output')
 
         trainer.log_metrics("train", train_results.metrics)
         trainer.save_metrics("train", train_results.metrics)
         trainer.save_state()
 
         metrics = trainer.evaluate()
-        # some nice to haves:
         trainer.log_metrics("eval", metrics)
         trainer.save_metrics("eval", metrics)
 
 
 if __name__ == "__main__":
-    project_name = "chexpert-vit"
-    os.environ["WANDB_PROJECT"] = project_name
-    os.environ["WANDB_LOG_MODEL"] = "true"
-
-    args = get_args()
-    main(args)
+    main()

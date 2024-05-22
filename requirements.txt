@@ -1,5 +1,5 @@
 # local package
-# -e .
+-e .
 
 # external requirements
 flake8
@@ -27,3 +27,4 @@ protobuf==3.20.*
 accelerate
 datasets
 transformers
+hdf5

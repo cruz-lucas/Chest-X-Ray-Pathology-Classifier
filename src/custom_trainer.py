@@ -1,3 +1,4 @@
+"""Trainers for Ignore and MultiClass approaches."""
 from transformers import Trainer
 from torch import nn
 from torch import masked_select
