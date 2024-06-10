@@ -1,13 +1,13 @@
 import yaml
 
 
-def get_config() -> dict:
+def get_config(config_path='config.YAML') -> dict:
     """Reads configuration file.
 
     Returns:
         dict: configuration dictionary.
     """
-    with open('config.YAML') as f:
+    with open(config_path) as f:
         return yaml.safe_load(f)
 
 

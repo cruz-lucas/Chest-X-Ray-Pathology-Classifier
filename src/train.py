@@ -95,7 +95,9 @@ def main():
             config.trainer.checkpoint,
             problem_type="multi_label_classification",
             num_labels=num_labels,
-            ignore_mismatched_sizes=True
+            ignore_mismatched_sizes=True,
+            attn_implementation="sdpa",
+            torch_dtype=torch.float16
         ).to(device)
 
         training_args = TrainingArguments(
