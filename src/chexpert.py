@@ -7,9 +7,10 @@ import pandas as pd
 import numpy as np
 from PIL import Image
 from tqdm import tqdm
-import pyarrow as pa
-import pyarrow.parquet as pq
+import webdataset as wds
+import sys
 
+from torch import from_numpy
 from torch.utils.data import Dataset
 import torchvision.transforms as T
 
@@ -19,7 +20,7 @@ from src import UNCERTAINTY_POLICIES, PATHOLOGIES
 
 
 class CheXpertDataset(Dataset):
-    def __init__(self, config_path: Optional[str] = None, parquet_file_path: Optional[str] = None) -> None:
+    def __init__(self, config_path: Optional[str] = None, webdataset_file_path: Optional[str] = None) -> None:
         """Initialize the dataset and preprocess according to the uncertainty policy.
 
         Args:
@@ -28,10 +29,10 @@ class CheXpertDataset(Dataset):
         """
         self.config = get_config(config_path)
         self.logger = logging.getLogger(__name__)
-        self.parquet_file_path = parquet_file_path
+        self.webdataset_file_path = webdataset_file_path
 
-        if parquet_file_path:
-            self._load_from_parquet(parquet_file_path)
+        if webdataset_file_path:
+            self._load_from_webdataset(webdataset_file_path)
         else:
             self._load_from_raw_data()
 
@@ -64,11 +65,8 @@ class CheXpertDataset(Dataset):
             T.Normalize(mean=[0.5330], std=[0.0349])
         ])
 
-    def _load_from_parquet(self, parquet_file_path: str) -> None:
+    def _load_from_webdataset(self) -> None:
         """Load data from a parquet file.
-
-        Args:
-            parquet_file_path (str): Path to the parquet file.
         """
         pass
 
@@ -142,32 +140,24 @@ class CheXpertDataset(Dataset):
 
         return len(self.image_names)
 
-    def create_local_database(self, parquet_file_path: str) -> None:
+    def create_local_database(self, webdataset_file_path: str) -> None:
         """Create a local parquet file from the dataset.
 
         Args:
-            parquet_file_path (str): Path to the parquet file to save the dataset.
+            webdataset_file_path (str): Path to the parquet file to save the dataset.
         """
-        for i, batch in enumerate(tqdm(self, total=self.__len__())):
-            df_pixels = pd.DataFrame({
-                    'pixel_values': batch['pixel_values'].numpy().flatten(),
+        sink = wds.TarWriter(f"{webdataset_file_path}.tar")
+        for index in tqdm(range(self.__len__())):
+            if index%1000==0:
+                print(f"{index:6d}", end="\r", flush=True, file=sys.stderr)
+
+            sample = self.__getitem__(index)
+
+            sink.write({
+                "__key__": "sample%06d" % index,
+                "img.pth": sample['pixel_values'],
+                "labels.pth": from_numpy(sample['labels']),
             })
 
-            df_labels = pd.DataFrame({
-                    'labels': batch['labels']
-            })
-            if i == 0:
-                parquet_schema_pixels = pa.Table.from_pandas(df=df_pixels).schema
-                parquet_schema_labels = pa.Table.from_pandas(df=df_labels).schema
-                parquet_writer_pixels = pq.ParquetWriter(f"{parquet_file_path}_pixels.parquet", parquet_schema_pixels, compression='snappy')
-                parquet_writer_labels = pq.ParquetWriter(f"{parquet_file_path}_labels.parquet", parquet_schema_labels, compression='snappy')
-
-            table = pa.Table.from_pandas(df_pixels, schema=parquet_schema_pixels)
-            parquet_writer_pixels.write_table(table)
-
-            table = pa.Table.from_pandas(df_labels, schema=parquet_schema_labels)
-            parquet_writer_labels.write_table(table)
-
-        parquet_writer_pixels.close()
-        parquet_writer_labels.close()
-        self.logger.info(f"Data has been successfully saved to {parquet_file_path}_pixels and _labels")
+        sink.close()
+        self.logger.info(f"Data has been successfully saved to {webdataset_file_path}_pixels and _labels")
