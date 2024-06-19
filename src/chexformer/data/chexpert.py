@@ -159,5 +159,8 @@ class CheXpertDataset(Dataset):
                 "labels.pth": from_numpy(sample['labels']),
             })
 
+            if index == 100:
+                break
+
         sink.close()
         self.logger.info(f"Data has been successfully saved to {webdataset_file_path}_pixels and _labels")

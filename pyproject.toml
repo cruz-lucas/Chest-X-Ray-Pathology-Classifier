@@ -1,0 +1,48 @@
+[project]
+name = "chexformer"
+version = "1.0.0"
+description = "Final Project for Electronics and Computer Engineering @ UFRJ - Lucas Cruz."
+authors = [
+    {name = "Lucas Cruz", email = "lucasdearaujocruz@gmail.com"},
+    {name = "Lucas Cruz"},
+]
+dependencies = [
+    "flake8",
+    "pandas",
+    "numpy",
+    "matplotlib",
+    "ipykernel",
+    "click",
+    "python-dotenv",
+    "Pillow",
+    "opencv-python",
+    "torch>=2.0.0",
+    "torchvision",
+    "torchdata",
+    "fsspec",
+    "gcsfs",
+    "jupyterlab",
+    "wandb",
+    "torchmetrics",
+    "scikit-learn",
+    "tqdm",
+    "pytorch-lightning",
+    "protobuf==3.20.*",
+    "accelerate",
+    "datasets",
+    "transformers",
+    "webdataset",
+]
+requires-python = ">=3.9"
+readme = "README.md"
+license = {text = ""}
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+[tool.pdm]
+distribution = true
+
+[tool.pdm.dev-dependencies]
+dev = ["-e file:///${PROJECT_ROOT}/#egg=chexformer"]

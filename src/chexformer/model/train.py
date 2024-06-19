@@ -6,7 +6,7 @@ from transformers import (
 )
 import wandb
 
-from chexpert import CheXpertDataset
+from src.chexformer.data.chexpert import CheXpertDataset
 from custom_trainer import MaskedLossTrainer, MultiOutputTrainer
 
 import torch
@@ -63,7 +63,7 @@ def compute_metrics(eval_pred):
     }
 
 
-def main():
+def train():
     """Main function to run the training script."""
     config = get_config()
 
