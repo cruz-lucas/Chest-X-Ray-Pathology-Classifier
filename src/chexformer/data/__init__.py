@@ -1,2 +1,2 @@
 """Data handling module from chexformer."""
-from chexpert import CheXpertDataset
+from .chexpert import CheXpertDataset

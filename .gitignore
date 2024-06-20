@@ -8,6 +8,7 @@ __pycache__/
 # Distribution / packaging
 .Python
 env/
+.venv/
 build/
 develop-eggs/
 dist/
@@ -112,3 +113,8 @@ notebooks/*.pqt
 notebooks/artifacts/model-ma5hmbiw-v0/config.json
 *.csv
 .pdm-python
+.pdm-build
+
+
+# large files
+*.tar

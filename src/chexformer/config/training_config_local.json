@@ -1,0 +1,30 @@
+{
+  "base_model": "meta-llama/Llama-2-70b-hf",
+  "data_path": "yahma/alpaca-cleaned",
+  "data_name": "",
+  "num_epochs": 1,
+  "max_steps": 100,
+  "learning_rate": 0.0003,
+  "weight_decay": 0.02,
+  "warmup_ratio": 0.03,
+  "lr_scheduler_type": "cosine",
+  "batch_size": 16,
+  "micro_batch_size": 1,
+  "save_steps": 500,
+  "lora_r": 8,
+  "lora_alpha": 16,
+  "lora_dropout": 0.05,
+  "eval_steps": 20,
+  "val_set_size": 1000,
+  "input_key": "input",
+  "output_key": "output",
+  "device_map": "auto",
+  "lora_target_modules": [
+    "q_proj",
+    "k_proj",
+    "v_proj"
+  ],
+  "resume_from_checkpoint": null,
+  "debug_mode": false,
+  "debug_train_data_size": 100
+}
