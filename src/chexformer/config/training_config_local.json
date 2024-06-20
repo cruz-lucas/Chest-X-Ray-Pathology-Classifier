@@ -1,7 +1,5 @@
 {
-  "base_model": "meta-llama/Llama-2-70b-hf",
-  "data_path": "yahma/alpaca-cleaned",
-  "data_name": "",
+  "base_model": "google/vit-base-patch16-224",
   "num_epochs": 1,
   "max_steps": 100,
   "learning_rate": 0.0003,

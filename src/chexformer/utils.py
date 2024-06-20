@@ -10,9 +10,7 @@ from dataclasses_json import dataclass_json
 class TrainerConfig:
     """Object to hold training configs."""
 
-    base_model: Optional[str] = field(default="EleutherAI/pythia-1B-deduped")
-    data_path: str = field(default="yahma/alpaca-cleaned", metadata={"help": "Path to the training data."})
-    data_name: str = field(default="chexpert", metadata={"help": "Path to the training data config name."})
+    base_model: Optional[str] = field(default="google/vit-base-patch16-224")
     num_epochs: int = 1
     max_steps: int = -1
     learning_rate: float = 0.00002
@@ -55,6 +53,10 @@ class PreprocessConfig:
     gcp_bucket: Optional[str]
     constants: Constants
     data_path: str = field(default="gs://chexpert_images_database")
-    dataset_path: str = field(default="data/processed/chexpert.tar")
+    dataset_dir: str = field(default="data/processed/")
     split: str = field(default="train")
     resize: List[int] = field(default_factory=lambda: [224, 224])
+
+    def __post_init__(self):
+        """Fix typing from dict to Constants."""
+        self.constants = Constants(**self.constants)

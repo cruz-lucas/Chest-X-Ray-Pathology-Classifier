@@ -9,7 +9,7 @@ def preprocess_dataset_workflow(config: PreprocessConfig):
     """Run preprocess workflow and persists dataset locally.
 
     Args:
-        config (PreprocessConfig): Configuration data structure loaded from json.
+        config (PreprocessConfig): Configuration for preprocessing data.
     """
     dataset = CheXpertDataset(config=config)
     dataset.load_from_raw_data()

@@ -58,13 +58,23 @@ class CheXpertDataset(Dataset):
             ]
         )
 
-    def load_from_webdataset(self) -> None:
-        """Load data from a tar file."""
-        pass
+    def load_from_webdataset(self) -> wds.WebDataset:
+        """Load data from a tar file.
+
+        Returns:
+            wds.WebDataset: dataset loaded from tar file.
+        """
+
+        def unpack(data):
+            image = data["img.pth"]
+            labels = data["labels.pth"]
+            return image, labels
+
+        return wds.WebDataset(self.config.data_path).decode("torch").map(unpack)
 
     def preprocess_dataset(self) -> None:
         """Create a local preprocessed dataset from the original dataset."""
-        sink = wds.TarWriter(f"{self.config.dataset_path}")
+        sink = wds.TarWriter(f"{self.config.dataset_dir}/chexpert_{self.config.split}.tar")
         for index in tqdm(range(self.__len__())):
             if index % 1000 == 0:
                 print(f"{index:6d}", end="\r", flush=True, file=sys.stderr)
@@ -79,11 +89,10 @@ class CheXpertDataset(Dataset):
                 }
             )
 
-            if index == 100:
-                break
-
         sink.close()
-        self.logger.info(f"Data has been successfully saved to {self.config.dataset_path}")
+        self.logger.info(
+            f"Data has been successfully saved to {self.config.dataset_dir}/chexpert_{self.config.split}.tar"
+        )
 
     def _load_data(self, path: str) -> pd.DataFrame:
         """Load data from local or cloud storage.
