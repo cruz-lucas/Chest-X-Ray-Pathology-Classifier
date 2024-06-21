@@ -1,5 +1,6 @@
 {
   "base_model": "google/vit-base-patch16-224",
+  "uncertainty_policy": "U-Ignore",
   "num_epochs": 1,
   "max_steps": 100,
   "learning_rate": 0.0003,
@@ -7,22 +8,17 @@
   "warmup_ratio": 0.03,
   "lr_scheduler_type": "cosine",
   "batch_size": 16,
-  "micro_batch_size": 1,
+  "gradient_accumulation": 1,
   "save_steps": 500,
   "lora_r": 8,
   "lora_alpha": 16,
   "lora_dropout": 0.05,
-  "eval_steps": 20,
-  "val_set_size": 1000,
-  "input_key": "input",
-  "output_key": "output",
-  "device_map": "auto",
+  "lora_bias": "none",
+  "lora_use_rslora": true,
+  "device": "cpu",
   "lora_target_modules": [
-    "q_proj",
-    "k_proj",
-    "v_proj"
+    "query",
+    "value"
   ],
-  "resume_from_checkpoint": null,
-  "debug_mode": false,
-  "debug_train_data_size": 100
+  "resume_from_checkpoint": null
 }

@@ -1,0 +1,16 @@
+{
+  "uncertainty_policies": [
+    "U-Ignore",
+    "U-Zeros",
+    "U-Ones",
+    "U-SelfTrained",
+    "U-MultiClass"
+  ],
+  "pathologies": [
+    "Atelectasis",
+    "Cardiomegaly",
+    "Consolidation",
+    "Edema",
+    "Pleural Effusion"
+  ]
+}

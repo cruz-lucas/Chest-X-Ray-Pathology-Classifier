@@ -1,27 +1,11 @@
 {
   "data_path": "gs://chexpert_images_database",
   "dataset_dir": "data/processed",
-  "split": "valid",
+  "split": "train",
   "resize": [
     224,
     224
   ],
   "gcp_project_id": "labshurb",
-  "gcp_bucket": "chexpert_images_database",
-  "constants": {
-    "uncertainty_policies": [
-      "U-Ignore",
-      "U-Zeros",
-      "U-Ones",
-      "U-SelfTrained",
-      "U-MultiClass"
-    ],
-    "pathologies": [
-      "Atelectasis",
-      "Cardiomegaly",
-      "Consolidation",
-      "Edema",
-      "Pleural Effusion"
-    ]
-  }
+  "gcp_bucket": "chexpert_images_database"
 }

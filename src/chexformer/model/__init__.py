@@ -1,4 +1,3 @@
 """Model and training handling module from chexformer."""
-from custom_trainer import MaskedLossTrainer
-from custom_trainer import MultiOutputTrainer
-from train import train
+from .customtrainers import MaskedLossTrainer, MultiOutputTrainer
+from .helpers import get_arguments, get_model, prepare_compute_metrics

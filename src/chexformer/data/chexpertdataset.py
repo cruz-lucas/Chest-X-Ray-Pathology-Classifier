@@ -2,6 +2,7 @@
 import io
 import logging
 import sys
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -13,7 +14,7 @@ from torch.utils.data import Dataset
 from torchvision.transforms import v2
 from tqdm import tqdm
 
-from chexformer.utils import PreprocessConfig
+from chexformer.utils import Constants, PreprocessConfig
 
 
 class CheXpertDataset(Dataset):
@@ -23,13 +24,15 @@ class CheXpertDataset(Dataset):
         Dataset (Dataset): Pytorch's dataset.
     """
 
-    def __init__(self, config: PreprocessConfig) -> None:
+    def __init__(self, config: PreprocessConfig, constants: Constants) -> None:
         """Initialize the dataset and preprocess according to the uncertainty policy.
 
         Args:
             config (PreprocessConfig): Configuration object.
+            constants (Constants): Constants used in the project.
         """
         self.config = config
+        self.constants = constants
         self.logger = logging.getLogger(__name__)
 
     def load_from_raw_data(self) -> None:
@@ -45,9 +48,7 @@ class CheXpertDataset(Dataset):
             self.bucket = None
 
         self.image_names = data.index.to_numpy()
-        self.labels = data.loc[:, self.config.constants.pathologies].values.reshape(
-            (-1, len(self.config.constants.pathologies))
-        )
+        self.labels = data.loc[:, self.constants.pathologies].values.reshape((-1, len(self.constants.pathologies)))
 
         self.transform = v2.Compose(
             [
@@ -58,7 +59,7 @@ class CheXpertDataset(Dataset):
             ]
         )
 
-    def load_from_webdataset(self) -> wds.WebDataset:
+    def load_from_webdataset(self, split: Literal["train", "valid", "test"]) -> wds.WebDataset:
         """Load data from a tar file.
 
         Returns:
@@ -68,9 +69,9 @@ class CheXpertDataset(Dataset):
         def unpack(data):
             image = data["img.pth"]
             labels = data["labels.pth"]
-            return image, labels
+            return {"pixel_values": image, "labels": labels}
 
-        return wds.WebDataset(self.config.data_path).decode("torch").map(unpack)
+        return wds.WebDataset(f"{self.config.dataset_dir}/chexpert_{split}.tar").decode("torch").map(unpack)
 
     def preprocess_dataset(self) -> None:
         """Create a local preprocessed dataset from the original dataset."""

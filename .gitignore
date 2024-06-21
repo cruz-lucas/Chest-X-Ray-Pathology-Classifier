@@ -118,3 +118,7 @@ notebooks/artifacts/model-ma5hmbiw-v0/config.json
 
 # large files
 *.tar
+
+
+/output*
+/mlruns*
