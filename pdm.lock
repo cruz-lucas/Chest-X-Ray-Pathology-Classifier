@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = ["cross_platform", "inherit_metadata"]
 lock_version = "4.4.1"
-content_hash = "sha256:02cf8b503085439bbfc789cf76af7b3b5d2ab9b58606b264c45365e180cd3d2e"
+content_hash = "sha256:e658702f7b0bff2dc3a676df093b22e28f52d467fb2a9865b19b27507e831ca7"
 
 [[package]]
 name = "accelerate"
@@ -1650,6 +1650,17 @@ dependencies = [
 files = [
     {file = "mlflow-2.14.1-py3-none-any.whl", hash = "sha256:0bda38f94468d69a169415b1d751078f1083ddb44646f50854d387bcb6d0b9ec"},
     {file = "mlflow-2.14.1.tar.gz", hash = "sha256:1258ade134b9fbb15b1b0f22b0e9f98b5ff6f5f57575c10adfb255b9331fc587"},
+]
+
+[[package]]
+name = "more-itertools"
+version = "10.3.0"
+requires_python = ">=3.8"
+summary = "More routines for operating on iterables, beyond itertools"
+groups = ["default", "dev"]
+files = [
+    {file = "more-itertools-10.3.0.tar.gz", hash = "sha256:e5d93ef411224fbcef366a6e8ddc4c5781bc6359d43412a65dd5964e46111463"},
+    {file = "more_itertools-10.3.0-py3-none-any.whl", hash = "sha256:ea6a02e24a9161e51faad17a8782b92a0df82c12c1c8886fec7f0c3fa1a1b320"},
 ]
 
 [[package]]

@@ -13,7 +13,6 @@ def preprocess_dataset_workflow(config: PreprocessConfig, constants: Constants):
         constants (Constants): Constants used in the project.
     """
     dataset = CheXpertDataset(config=config, constants=constants)
-    dataset.load_from_raw_data()
     dataset.preprocess_dataset()
 
 

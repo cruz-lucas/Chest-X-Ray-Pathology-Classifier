@@ -18,9 +18,16 @@ def train_workflow(data_config: PreprocessConfig, train_config: TrainerConfig, c
         train_config (TrainerConfig): Configuration for training model.
         constants (Constants): Constants used in the project.
     """
-    dataset = CheXpertDataset(config=data_config, constants=constants)
-    train_dataset = dataset.load_from_webdataset(split="train")
-    valid_dataset = dataset.load_from_webdataset(split="valid")
+    data_config.split = "train"
+    train_dataset = CheXpertDataset(config=data_config, constants=constants)
+    train_dataset.load_from_webdataset(split=data_config.split)
+
+    # DEBUG ONLY!
+    train_dataset.image_names = train_dataset.image_names[:100]
+
+    data_config.split = "valid"
+    valid_dataset = CheXpertDataset(config=data_config, constants=constants)
+    valid_dataset.load_from_webdataset(split=data_config.split)
 
     training_args, lora_args = get_arguments(train_config)
     model = get_model(config=train_config, constants=constants)

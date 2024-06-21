@@ -9,6 +9,7 @@ import pandas as pd
 import torch
 import webdataset as wds
 from google.cloud import storage
+from more_itertools import nth
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision.transforms import v2
@@ -33,45 +34,17 @@ class CheXpertDataset(Dataset):
         """
         self.config = config
         self.constants = constants
+        self.webdataset = None
         self.logger = logging.getLogger(__name__)
+        self._load_from_raw_data()
 
-    def load_from_raw_data(self) -> None:
-        """Load and preprocess data from raw files."""
-        path = f"{self.config.data_path}/CheXpert-v1.0/{self.config.split}.csv"
-        data = self._load_data(path)
-        data.fillna(0, inplace=True)
-
-        if "gs://" in self.config.data_path:
-            storage_client = storage.Client(project=self.config.gcp_project_id)
-            self.bucket = storage_client.bucket(self.config.gcp_bucket)
-        else:
-            self.bucket = None
-
-        self.image_names = data.index.to_numpy()
-        self.labels = data.loc[:, self.constants.pathologies].values.reshape((-1, len(self.constants.pathologies)))
-
-        self.transform = v2.Compose(
-            [
-                v2.ToImage(),
-                v2.Resize(tuple(self.config.resize)),
-                v2.ToDtype(torch.float32, scale=True),
-                v2.Normalize(mean=[0.5330], std=[0.0349]),
-            ]
-        )
-
-    def load_from_webdataset(self, split: Literal["train", "valid", "test"]) -> wds.WebDataset:
+    def load_from_webdataset(self, split: str) -> wds.WebDataset:
         """Load data from a tar file.
 
         Returns:
             wds.WebDataset: dataset loaded from tar file.
         """
-
-        def unpack(data):
-            image = data["img.pth"]
-            labels = data["labels.pth"]
-            return {"pixel_values": image, "labels": labels}
-
-        return wds.WebDataset(f"{self.config.dataset_dir}/chexpert_{split}.tar").decode("torch").map(unpack)
+        self.webdataset = wds.WebDataset(f"{self.config.dataset_dir}/chexpert_{split}.tar").decode("torch")
 
     def preprocess_dataset(self) -> None:
         """Create a local preprocessed dataset from the original dataset."""
@@ -95,7 +68,31 @@ class CheXpertDataset(Dataset):
             f"Data has been successfully saved to {self.config.dataset_dir}/chexpert_{self.config.split}.tar"
         )
 
-    def _load_data(self, path: str) -> pd.DataFrame:
+    def _load_from_raw_data(self) -> None:
+        """Load and preprocess data from raw files."""
+        path = f"{self.config.data_path}/CheXpert-v1.0/{self.config.split}.csv"
+        data = self._load_metadata(path)
+        data.fillna(0, inplace=True)
+
+        if "gs://" in self.config.data_path:
+            storage_client = storage.Client(project=self.config.gcp_project_id)
+            self.bucket = storage_client.bucket(self.config.gcp_bucket)
+        else:
+            self.bucket = None
+
+        self.image_names = data.index.to_numpy()
+        self.labels = data.loc[:, self.constants.pathologies].values.reshape((-1, len(self.constants.pathologies)))
+
+        self.transform = v2.Compose(
+            [
+                v2.ToImage(),
+                v2.Resize(tuple(self.config.resize)),
+                v2.ToDtype(torch.float32, scale=True),
+                v2.Normalize(mean=[0.5330], std=[0.0349]),
+            ]
+        )
+
+    def _load_metadata(self, path: str) -> pd.DataFrame:
         """Load data from local or cloud storage.
 
         Args:
@@ -124,6 +121,11 @@ class CheXpertDataset(Dataset):
         Returns:
             dict: Contains 'pixel_values' (image) and 'labels' (label tensor).
         """
+        if self.webdataset is not None:
+            sample = nth(self.webdataset, index)
+            assert sample["__key__"] == "sample%06d" % index
+            return {"pixel_values": sample["img.pth"], "labels": sample["labels.pth"]}
+
         if self.bucket is None:
             img = Image.open(self.image_names[index]).convert("RGB")
         else:
